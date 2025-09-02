@@ -1,15 +1,15 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { KPICards } from '@/components/admin/KPICards'
-import { TimeBasedAnalytics } from '@/components/admin/TimeBasedAnalytics'
-import { GeographicMap } from '@/components/admin/GeographicMap'
-import { DeviceTracking } from '@/components/admin/DeviceTracking'
-import { ErrorTracking } from '@/components/admin/ErrorTracking'
-import { MerchantActivity } from '@/components/admin/MerchantActivity'
-import { DataExport } from '@/components/admin/DataExport'
-import { NotificationSender } from '@/components/admin/NotificationSender'
-import { NotificationAnalytics } from '@/components/admin/NotificationAnalytics'
+import { KPICards } from '../../components/admin/KPICards'
+import { TimeBasedAnalytics } from '../../components/admin/TimeBasedAnalytics'
+import { GeographicMap } from '../../components/admin/GeographicMap'
+import { DeviceTracking } from '../../components/admin/DeviceTracking'
+import { ErrorTracking } from '../../components/admin/ErrorTracking'
+import { MerchantActivity } from '../../components/admin/MerchantActivity'
+import { DataExport } from '../../components/admin/DataExport'
+import { NotificationSender } from '../../components/admin/NotificationSender'
+import { NotificationAnalytics } from '../../components/admin/NotificationAnalytics'
 
 interface AdminData {
   kpis: {
