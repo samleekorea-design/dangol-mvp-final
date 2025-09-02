@@ -1,0 +1,398 @@
+'use client'
+
+import { useState, useEffect } from 'react'
+import { getKoreanTime, formatKoreanTime, isDealExpired } from '@/lib/timezoneUtils'
+
+interface Deal {
+  id: number
+  title: string
+  description: string
+  expires_at: string
+  max_claims: number
+  current_claims: number
+  created_at: string
+}
+
+export default function MerchantDashboard() {
+  const [deals, setDeals] = useState<Deal[]>([])
+  const [merchantId, setMerchantId] = useState<number | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const [message, setMessage] = useState('')
+  const [errors, setErrors] = useState<string[]>([])
+  const [showForm, setShowForm] = useState(false)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+
+  const [formData, setFormData] = useState({
+    title: '',
+    description: '',
+    hours: '',
+    maxClaims: ''
+  })
+
+  useEffect(() => {
+    // Check for merchant session/authentication
+    const storedMerchant = localStorage.getItem('merchant')
+    if (storedMerchant) {
+      try {
+        const merchant = JSON.parse(storedMerchant)
+        if (merchant.id) {
+          setMerchantId(merchant.id)
+          setIsAuthenticated(true)
+          fetchDeals(merchant.id)
+        } else {
+          redirectToLogin()
+        }
+      } catch (error) {
+        redirectToLogin()
+      }
+    } else {
+      redirectToLogin()
+    }
+  }, [])
+
+  const redirectToLogin = () => {
+    setErrors(['Please log in to access the dashboard'])
+    // In a real app, you would redirect to login page
+    // window.location.href = '/merchant/login'
+  }
+
+  const fetchDeals = async (currentMerchantId?: number) => {
+    const idToUse = currentMerchantId || merchantId
+    if (!idToUse) return
+
+    try {
+      const response = await fetch(`/api/merchants/deals?merchantId=${idToUse}`)
+      const data = await response.json()
+      if (data.success) {
+        setDeals(data.deals)
+      }
+    } catch (error) {
+      console.error('Failed to fetch deals:', error)
+    }
+  }
+
+  const validateForm = () => {
+    const newErrors: string[] = []
+    
+    if (!formData.title.trim()) newErrors.push('Deal title is required')
+    if (!formData.description.trim()) newErrors.push('Deal description is required')
+    if (!formData.hours || Number(formData.hours) < 1 || Number(formData.hours) > 24) {
+      newErrors.push('Hours must be between 1 and 24')
+    }
+    if (!formData.maxClaims || Number(formData.maxClaims) < 1) {
+      newErrors.push('Max claims must be at least 1')
+    }
+    
+    return newErrors
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setErrors([])
+    setMessage('')
+
+    const validationErrors = validateForm()
+    if (validationErrors.length > 0) {
+      setErrors(validationErrors)
+      return
+    }
+
+    setIsLoading(true)
+
+    try {
+      const response = await fetch('/api/merchants/deals', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          merchantId: merchantId!,
+          title: formData.title,
+          description: formData.description,
+          hours: Number(formData.hours),
+          maxClaims: Number(formData.maxClaims)
+        }),
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        setMessage('Deal created successfully!')
+        setFormData({
+          title: '',
+          description: '',
+          hours: '',
+          maxClaims: ''
+        })
+        setShowForm(false)
+        fetchDeals() // Refresh deals list
+      } else {
+        setErrors([data.error || 'Failed to create deal'])
+      }
+    } catch (error) {
+      setErrors(['Network error. Please try again.'])
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    })
+  }
+
+  const isExpired = (deal: Deal) => {
+    // Use backward-compatible expiration check
+    return isDealExpired(deal.id, deal.expires_at)
+  }
+
+  const formatDate = (dateString: string) => {
+    // All deals are stored as UTC, parse as UTC and format in Korean timezone
+    const date = new Date(dateString + ' UTC')
+    return formatKoreanTime(date)
+  }
+
+  const totalDeals = deals.length
+  const activeDeals = deals.filter(deal => !isExpired(deal)).length
+  const totalClaims = deals.reduce((sum, deal) => sum + deal.current_claims, 0)
+
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-[#65BBFF] via-10% via-[#3A82FF] via-25% to-[#1E6AFF]">
+        
+        <div className="max-w-[375px] mx-auto px-6 py-8">
+          {/* Logo - Top Left */}
+          <div className="flex justify-start mb-6 w-full">
+            <img 
+              src="/images/logo-white.png" 
+              alt="Dangol Logo" 
+              className="h-8 w-auto opacity-90"
+            />
+          </div>
+          
+          <div className="text-center mb-8 w-full">
+            <h1 className="text-3xl font-light text-white mb-2">인증 필요</h1>
+            <p className="text-sm text-white/80">대시보드에 접근하려면 로그인이 필요합니다</p>
+          </div>
+          
+          {errors.length > 0 && (
+            <div className="bg-red-500/20 backdrop-blur-sm border border-red-400/30 rounded-lg p-3 mb-4">
+              {errors.map((error, index) => (
+                <p key={index} className="text-red-100 text-sm">{error}</p>
+              ))}
+            </div>
+          )}
+          
+          <div className="text-center">
+            <a
+              href="/merchant/login"
+              className="inline-block bg-white text-blue-600 font-light py-3 px-6 rounded-lg hover:bg-white/90 focus:outline-none focus:ring-2 focus:ring-blue-300/50 transition-all duration-300"
+            >
+              로그인하기
+            </a>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-[#65BBFF] via-10% via-[#3A82FF] via-25% to-[#1E6AFF]">
+      
+      <div className="max-w-[375px] mx-auto px-6 py-8">
+        {/* Logo - Top Left */}
+        <div className="flex justify-start mb-6 w-full">
+          <a href="/">
+            <img 
+              src="/images/logo-white.png" 
+              alt="Dangol Logo" 
+              className="h-8 w-auto opacity-90"
+            />
+          </a>
+        </div>
+        
+        <div className="text-center mb-8 w-full">
+          <h1 className="text-3xl font-light text-white mb-2">대시보드</h1>
+          <p className="text-sm text-white/80">혜택 관리 및 분석 현황</p>
+        </div>
+
+        {/* Analytics Cards */}
+        <div className="grid grid-cols-3 gap-2 mb-8 w-full">
+          <div className="bg-white/10 backdrop-blur-sm p-3 rounded-lg border border-white/20 text-center">
+            <p className="text-xl font-light text-white mb-1">{totalDeals}</p>
+            <h3 className="text-xs font-light text-white/80">전체 혜택</h3>
+          </div>
+          <div className="bg-white/10 backdrop-blur-sm p-3 rounded-lg border border-white/20 text-center">
+            <p className="text-xl font-light text-green-200 mb-1">{activeDeals}</p>
+            <h3 className="text-xs font-light text-white/80">활성 혜택</h3>
+          </div>
+          <div className="bg-white/10 backdrop-blur-sm p-3 rounded-lg border border-white/20 text-center">
+            <p className="text-xl font-light text-blue-200 mb-1">{totalClaims}</p>
+            <h3 className="text-xs font-light text-white/80">총 사용 횟수</h3>
+          </div>
+        </div>
+
+        {/* Create Deal Button */}
+        <div className="mb-6 w-full">
+          <button
+            onClick={() => setShowForm(!showForm)}
+            className="w-full bg-white text-blue-600 font-light py-3 px-4 rounded-lg hover:bg-white/90 focus:outline-none focus:ring-2 focus:ring-blue-300/50 transition-all duration-300"
+          >
+            {showForm ? '취소' : '새 혜택 만들기'}
+          </button>
+        </div>
+
+        {/* Create Deal Form */}
+        {showForm && (
+          <div className="bg-blue-700/30 backdrop-blur-sm p-6 rounded-lg border border-blue-500/40 mb-8 w-full">
+            <h2 className="text-xl font-light text-white mb-4">새 혜택 만들기</h2>
+            
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label htmlFor="title" className="block text-sm font-light text-white mb-2">
+                  혜택 제목 *
+                </label>
+                <input
+                  type="text"
+                  id="title"
+                  name="title"
+                  value={formData.title}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 rounded-lg bg-white/10 backdrop-blur-sm border border-white/20 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-blue-300/50 focus:border-blue-300/60"
+                  placeholder="혜택 제목을 입력하세요"
+                  required
+                />
+              </div>
+
+              <div>
+                <label htmlFor="description" className="block text-sm font-light text-white mb-2">
+                  설명 *
+                </label>
+                <textarea
+                  id="description"
+                  name="description"
+                  value={formData.description}
+                  onChange={handleChange}
+                  rows={3}
+                  className="w-full px-4 py-3 rounded-lg bg-white/10 backdrop-blur-sm border border-white/20 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-blue-300/50 focus:border-blue-300/60 resize-none"
+                  placeholder="혜택 설명을 입력하세요"
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label htmlFor="hours" className="block text-sm font-light text-white mb-2">
+                    유효 시간 (1-24) *
+                  </label>
+                  <input
+                    type="number"
+                    id="hours"
+                    name="hours"
+                    min="1"
+                    max="24"
+                    value={formData.hours}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 rounded-lg bg-white/10 backdrop-blur-sm border border-white/20 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-blue-300/50 focus:border-blue-300/60"
+                    placeholder="시간"
+                    required
+                  />
+                </div>
+                <div>
+                  <label htmlFor="maxClaims" className="block text-sm font-light text-white mb-2">
+                    최대 사용자 수 *
+                  </label>
+                  <input
+                    type="number"
+                    id="maxClaims"
+                    name="maxClaims"
+                    min="1"
+                    value={formData.maxClaims}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 rounded-lg bg-white/10 backdrop-blur-sm border border-white/20 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-blue-300/50 focus:border-blue-300/60"
+                    placeholder="인원"
+                    required
+                  />
+                </div>
+              </div>
+
+              {errors.length > 0 && (
+                <div className="bg-red-500/20 backdrop-blur-sm border border-red-400/30 rounded-lg p-3">
+                  {errors.map((error, index) => (
+                    <p key={index} className="text-red-100 text-sm">{error}</p>
+                  ))}
+                </div>
+              )}
+
+              {message && (
+                <div className="bg-green-500/20 backdrop-blur-sm border border-green-400/30 rounded-lg p-3">
+                  <p className="text-green-100 text-sm">{message}</p>
+                </div>
+              )}
+
+              <div className="mt-6">
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="w-full bg-white text-blue-600 font-light py-3 px-4 rounded-lg hover:bg-white/90 focus:outline-none focus:ring-2 focus:ring-blue-300/50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300"
+                >
+                  {isLoading ? '만드는 중...' : '혜택 만들기'}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* Deals List */}
+        <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 w-full">
+          <div className="px-6 py-4 border-b border-white/20">
+            <h2 className="text-xl font-light text-white">내 혜택 목록</h2>
+          </div>
+        
+          {deals.length === 0 ? (
+            <div className="px-6 py-8 text-center text-white/80">
+              아직 만들어진 혜택이 없습니다. 첫 번째 혜택을 만들어보세요!
+            </div>
+          ) : (
+            <div className="divide-y divide-white/20">
+              {deals.map((deal) => (
+                <div key={deal.id} className="px-6 py-4">
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <h3 className="text-lg font-light text-white mb-1">
+                        {deal.title}
+                        {isExpired(deal) && (
+                          <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-500/30 text-red-200">
+                            만료
+                          </span>
+                        )}
+                        {!isExpired(deal) && (
+                          <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-500/30 text-green-200">
+                            활성
+                          </span>
+                        )}
+                      </h3>
+                      <p className="text-white/80 mb-2">{deal.description}</p>
+                      <div className="text-sm text-white/60">
+                        <p>사용: {deal.current_claims} / {deal.max_claims}</p>
+                        <p>만료: {formatDate(deal.expires_at)}</p>
+                        <p>생성: {formatDate(deal.created_at)}</p>
+                      </div>
+                    </div>
+                    <div className="ml-4 text-right">
+                      <div className="text-sm font-light text-white/80">
+                        #{deal.id}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
