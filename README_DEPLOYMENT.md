@@ -137,12 +137,30 @@ After deployment, verify:
 | SSL Certificate | ✅ | ✅ |
 | Performance | ✅ | ✅ |
 
+## ✅ SQLite Database Fixed for Serverless
+
+The SQLite database initialization issue has been **RESOLVED**:
+
+- **✅ Database Path**: Uses `/tmp/dangol-v2.db` for Vercel serverless environment
+- **✅ Auto-Creation**: Database file and tables created automatically on startup
+- **✅ Schema Fallback**: Inline schema used when `schema.sql` not accessible
+- **✅ Health Check**: `/api/health` endpoint for database connectivity testing
+- **✅ Error Handling**: Comprehensive error handling and logging for debugging
+- **✅ Server-Safe**: Fixed `navigator.userAgent` reference for server-side execution
+
+### Database Features
+- Automatic table creation with proper indexes
+- Fallback to inline schema if external file unavailable
+- Handles both development (local file) and production (serverless) environments
+- Health check endpoint: `GET /api/health`
+
 ## 🚨 Important Notes
 
 1. **TypeScript Errors**: Temporarily ignored for deployment (can be fixed post-deployment)
-2. **Database**: Currently using SQLite (consider PostgreSQL for production scale)
+2. **Database**: ✅ SQLite database initialization **FIXED** for serverless deployment
 3. **FCM Configuration**: Ensure Firebase project `dangol-mvp` exists and has proper permissions
 4. **Environment Security**: Never commit `.env.vercel` or service account keys to git
+5. **Deployment Protection**: Vercel has authentication protection enabled for security
 
 ## 🆘 Support
 

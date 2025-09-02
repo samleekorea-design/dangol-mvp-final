@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
-    "build": "next build --turbopack",
+    "dev": "next dev",
+    "build": "next build",
     "start": "next start",
     "lint": "eslint",
     "deploy:vercel": "vercel --prod",
@@ -12,7 +12,6 @@
     "deploy": "npm run deploy:vercel",
     "preview": "npm run deploy:vercel:preview",
     "vercel-build": "next build",
-    "postinstall": "npm run build",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {

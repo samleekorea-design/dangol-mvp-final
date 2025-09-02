@@ -1,36 +1,106 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# DANGOL V2
 
-## Getting Started
+A hyperlocal deal and loyalty platform connecting local businesses with nearby customers through location-based notifications and special offers.
 
-First, run the development server:
+## Features
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- **Customer App**: Browse nearby deals, claim offers, receive push notifications
+- **Merchant Dashboard**: Create deals, send targeted notifications, track redemptions
+- **Admin Panel**: Analytics, notification management, system monitoring
+- **Push Notifications**: FCM V1 API integration for real-time alerts
+- **Location-Based**: Deals filtered by proximity to user location
+
+## Tech Stack
+
+- **Frontend**: Next.js 15.5.2, React 19, Tailwind CSS
+- **Backend**: Next.js API Routes
+- **Database**: SQLite (better-sqlite3)
+- **Authentication**: Custom merchant authentication with bcrypt
+- **Push Notifications**: Firebase Cloud Messaging V1 API
+- **Deployment**: DigitalOcean App Platform / Vercel
+
+## Project Structure
+
+```
+├── src/
+│   ├── app/                 # Next.js App Router pages
+│   │   ├── page.tsx         # Homepage
+│   │   ├── customer/        # Customer app
+│   │   ├── merchant/        # Merchant dashboard
+│   │   ├── admin/           # Admin panel
+│   │   └── api/             # API routes
+│   ├── components/          # React components
+│   └── lib/                 # Utilities and services
+├── public/                  # Static assets
+│   ├── sw.js               # Service Worker for PWA
+│   └── manifest.json       # PWA manifest
+└── package.json            # Dependencies and scripts
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Installation
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+# Install dependencies
+npm install
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+# Set up environment variables
+cp .env.local.example .env.local
+# Edit .env.local with your Firebase credentials
 
-## Learn More
+# Run development server
+npm run dev
+```
 
-To learn more about Next.js, take a look at the following resources:
+## Environment Variables
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Create `.env.local` with:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```env
+# Firebase Configuration
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=your-project-id
+NEXT_PUBLIC_FIREBASE_API_KEY=your-api-key
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your-auth-domain
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your-storage-bucket
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your-sender-id
+NEXT_PUBLIC_FIREBASE_APP_ID=your-app-id
 
-## Deploy on Vercel
+# FCM V1 API
+GOOGLE_CLOUD_PROJECT_ID=your-project-id
+VAPID_PUBLIC_KEY=your-vapid-public-key
+VAPID_PRIVATE_KEY=your-vapid-private-key
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Scripts
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- `npm run dev` - Start development server
+- `npm run build` - Build for production
+- `npm start` - Start production server
+- `npm run lint` - Run ESLint
+- `npm run type-check` - TypeScript type checking
+
+## Deployment
+
+### DigitalOcean App Platform
+
+1. Push code to GitHub
+2. Connect GitHub repo to DigitalOcean
+3. Set environment variables in App Platform
+4. Deploy
+
+### Build Settings for DigitalOcean
+
+- **Build Command**: `npm run build`
+- **Run Command**: `npm start`
+- **Node Version**: 20.x
+- **Output Directory**: `.next`
+
+## Database
+
+The application uses SQLite with automatic initialization:
+- Development: Local `dangol-v2.db` file
+- Production: Created in `/tmp` directory for serverless environments
+- Tables are created automatically on first run
+
+## License
+
+Private - All rights reserved
