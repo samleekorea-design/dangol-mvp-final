@@ -104,3 +104,4 @@ The application uses SQLite with automatic initialization:
 ## License
 
 Private - All rights reserved
+Auto-deploy trigger: #오후
