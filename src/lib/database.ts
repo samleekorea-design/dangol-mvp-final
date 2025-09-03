@@ -103,7 +103,7 @@ class DangolDB {
     try {
       // Determine database path - use /tmp for Vercel serverless
       const isVercel = process.env.VERCEL || process.env.VERCEL_ENV;
-      const dbPath = isVercel ? '/tmp/dangol-v2.db' : 'dangol-v2.db';
+      const dbPath = process.env.DATABASE_URL ? process.env.DATABASE_URL.replace('file:', '').replace('./', '') : (isVercel ? '/tmp/dangol-v2.db' : 'dangol-v2.db');
       
       console.log(`🗄️  Initializing database at: ${dbPath}`);
       
