@@ -354,7 +354,7 @@ class DangolDB {
       SELECT d.*, m.business_name as merchant_name, m.address as merchant_address, m.latitude, m.longitude
       FROM deals d 
       JOIN merchants m ON d.merchant_id = m.id 
-      WHERE d.expires_at > datetime('now', '+9 hours')
+      WHERE d.expires_at > datetime('now')
       AND d.current_claims < d.max_claims
       AND m.latitude BETWEEN ? AND ?
       AND m.longitude BETWEEN ? AND ?
