@@ -18,7 +18,7 @@ export async function GET(
     console.log('🔍 Fetching claimed deals for device:', deviceId);
     
     // Get all active claims for this device
-    const claimedDeals = db.getClaimedDealsByDevice(deviceId);
+    const claimedDeals = await db.getClaimedDealsByDevice(deviceId);
     
     console.log('📋 Found claimed deals:', claimedDeals.length);
     

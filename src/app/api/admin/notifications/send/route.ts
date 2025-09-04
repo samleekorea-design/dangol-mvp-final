@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
     console.log('📤 Sending notification:', notificationData)
 
     // Create notification record in database
-    const notification = db.createNotification({
+    const notification = await db.createNotification({
       title: notificationData.title,
       body: notificationData.body,
       icon: notificationData.icon,
@@ -53,13 +53,13 @@ export async function POST(request: NextRequest) {
     
     switch (notificationData.targetType) {
       case 'all':
-        const allSubscriptions = db.getActivePushSubscriptions()
+        const allSubscriptions = await db.getActivePushSubscriptions()
         targetDeviceIds = allSubscriptions.map(sub => sub.device_id)
         break
         
       case 'radius':
         if (notificationData.radiusLat && notificationData.radiusLng && notificationData.radiusMeters) {
-          targetDeviceIds = db.getDevicesByLocation(
+          targetDeviceIds = await db.getDevicesByLocation(
             notificationData.radiusLat,
             notificationData.radiusLng,
             notificationData.radiusMeters
@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
         
       case 'merchant_customers':
         if (notificationData.merchantId) {
-          targetDeviceIds = db.getMerchantCustomerDevices(notificationData.merchantId)
+          targetDeviceIds = await db.getMerchantCustomerDevices(notificationData.merchantId)
         }
         break
     }
@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
     console.log(`🎯 Targeting ${targetDeviceIds.length} devices`)
 
     // Update notification with recipient count
-    db.updateNotificationStatus(notification.id, 'sending', {
+    await db.updateNotificationStatus(notification.id, 'sending', {
       total_recipients: targetDeviceIds.length
     })
 
@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
     const deliveredCount = deliveryResults.filter(r => r.success).length
     const failedCount = deliveryResults.filter(r => !r.success).length
 
-    db.updateNotificationStatus(notification.id, 'sent', {
+    await db.updateNotificationStatus(notification.id, 'sent', {
       total_delivered: deliveredCount,
       total_recipients: targetDeviceIds.length
     })
@@ -145,7 +145,7 @@ async function sendPushNotifications(
   for (const deviceId of deviceIds) {
     try {
       // Get push subscription for device
-      const subscription = db.getPushSubscription(deviceId)
+      const subscription = await db.getPushSubscription(deviceId)
       
       if (!subscription) {
         results.push({
@@ -157,7 +157,7 @@ async function sendPushNotifications(
       }
 
       // Create notification delivery record
-      const delivery = db.createNotificationDelivery(
+      const delivery = await db.createNotificationDelivery(
         notificationId,
         deviceId,
         subscription.endpoint
@@ -192,7 +192,7 @@ async function sendPushNotifications(
       if (result.success) {
         // Update delivery status to delivered
         if (delivery) {
-          db.updateNotificationDeliveryStatus(delivery.id, 'delivered')
+          await db.updateNotificationDeliveryStatus(delivery.id, 'delivered')
         }
 
         results.push({
@@ -204,7 +204,7 @@ async function sendPushNotifications(
       } else {
         // Update delivery status to failed
         if (delivery) {
-          db.updateNotificationDeliveryStatus(delivery.id, 'failed', result.error)
+          await db.updateNotificationDeliveryStatus(delivery.id, 'failed', result.error)
         }
 
         results.push({
@@ -219,13 +219,13 @@ async function sendPushNotifications(
       console.error(`❌ Failed to send FCM V1 to device ${deviceId}:`, errorMessage)
 
       // Update delivery status to failed
-      const delivery = db.createNotificationDelivery(
+      const delivery = await db.createNotificationDelivery(
         notificationId,
         deviceId,
         'unknown'
       )
       if (delivery) {
-        db.updateNotificationDeliveryStatus(delivery.id, 'failed', errorMessage)
+        await db.updateNotificationDeliveryStatus(delivery.id, 'failed', errorMessage)
       }
 
       results.push({

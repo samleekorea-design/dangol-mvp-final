@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
     const lng = parseFloat(searchParams.get('lng') || '126.9780');
     const radius = parseInt(searchParams.get('radius') || '200');
     
-    const deals = db.getActiveDealsNearLocation(lat, lng, radius);
+    const deals = await db.getActiveDealsNearLocation(lat, lng, radius);
     
     return NextResponse.json({
       success: true,

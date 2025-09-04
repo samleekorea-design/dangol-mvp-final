@@ -293,6 +293,28 @@ export default function CustomerPage() {
     return formatKoreanTime(date)
   }
 
+  const getTimeRemaining = (expires_at: string) => {
+    const now = new Date()
+    const expiryDate = new Date(expires_at + ' UTC')
+    const timeDiff = expiryDate.getTime() - now.getTime()
+    
+    if (timeDiff <= 0) {
+      return '만료됨'
+    }
+    
+    const minutes = Math.floor(timeDiff / (1000 * 60))
+    const hours = Math.floor(minutes / 60)
+    const days = Math.floor(hours / 24)
+    
+    if (days > 0) {
+      return `${days}일 남음`
+    } else if (hours > 0) {
+      return `${hours}시간 남음`
+    } else {
+      return `${minutes}분 남음`
+    }
+  }
+
   const isExpired = (deal: Deal) => {
     // Use backward-compatible expiration check
     return isDealExpired(deal.id, deal.expires_at)

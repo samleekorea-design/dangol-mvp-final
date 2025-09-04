@@ -91,26 +91,26 @@ export async function GET(request: NextRequest) {
 async function getKPIs() {
   try {
     // Get total merchants
-    const merchants = db.db.prepare('SELECT COUNT(*) as count FROM merchants').get() as { count: number }
+    const merchants = (await db.pool.query('SELECT COUNT(*) as count FROM merchants')).rows[0] as { count: number }
     const totalMerchants = merchants.count
 
     // Get total deals
-    const deals = db.db.prepare('SELECT COUNT(*) as count FROM deals').get() as { count: number }
+    const deals = (await db.pool.query('SELECT COUNT(*) as count FROM deals')).rows[0] as { count: number }
     const totalDeals = deals.count
 
     // Get active deals
-    const activeDeals = db.db.prepare(`
+    const activeDeals = (await db.pool.query(`
       SELECT COUNT(*) as count FROM deals 
-      WHERE expires_at > datetime('now', '+9 hours') 
+      WHERE expires_at > NOW() + INTERVAL '9 hours'
       AND current_claims < max_claims
-    `).get() as { count: number }
+    `)).rows[0] as { count: number }
 
     // Get total claims
-    const claims = db.db.prepare('SELECT COUNT(*) as count FROM claims').get() as { count: number }
+    const claims = (await db.pool.query('SELECT COUNT(*) as count FROM claims')).rows[0] as { count: number }
     const totalClaims = claims.count
 
     // Get total redemptions
-    const redemptions = db.db.prepare('SELECT COUNT(*) as count FROM claims WHERE redeemed_at IS NOT NULL').get() as { count: number }
+    const redemptions = (await db.pool.query('SELECT COUNT(*) as count FROM claims WHERE redeemed_at IS NOT NULL')).rows[0] as { count: number }
     const totalRedemptions = redemptions.count
 
     // Calculate redemption rate
@@ -142,18 +142,18 @@ async function getTimeAnalytics() {
     // Get hourly data for last 24 hours
     const hourlyData = []
     for (let i = 0; i < 24; i++) {
-      const claims = db.db.prepare(`
+      const claims = (await db.pool.query(`
         SELECT COUNT(*) as count FROM claims 
-        WHERE strftime('%H', claimed_at, '+9 hours') = ? 
-        AND date(claimed_at, '+9 hours') = date('now', '+9 hours')
-      `).get(i.toString().padStart(2, '0')) as { count: number }
+        WHERE EXTRACT(HOUR FROM claimed_at AT TIME ZONE 'Asia/Seoul') = $1
+        AND DATE(claimed_at AT TIME ZONE 'Asia/Seoul') = DATE(NOW() AT TIME ZONE 'Asia/Seoul')
+      `, [i])).rows[0] as { count: number }
 
-      const redemptions = db.db.prepare(`
+      const redemptions = (await db.pool.query(`
         SELECT COUNT(*) as count FROM claims 
-        WHERE strftime('%H', redeemed_at, '+9 hours') = ? 
-        AND date(redeemed_at, '+9 hours') = date('now', '+9 hours')
+        WHERE EXTRACT(HOUR FROM redeemed_at AT TIME ZONE 'Asia/Seoul') = $1
+        AND DATE(redeemed_at AT TIME ZONE 'Asia/Seoul') = DATE(NOW() AT TIME ZONE 'Asia/Seoul')
         AND redeemed_at IS NOT NULL
-      `).get(i.toString().padStart(2, '0')) as { count: number }
+      `, [i])).rows[0] as { count: number }
 
       hourlyData.push({
         hour: i,
@@ -171,16 +171,16 @@ async function getTimeAnalytics() {
       koreanTime.setDate(koreanTime.getDate() - i)
       const dateStr = koreanTime.toISOString().split('T')[0]
 
-      const claims = db.db.prepare(`
+      const claims = (await db.pool.query(`
         SELECT COUNT(*) as count FROM claims 
-        WHERE date(claimed_at, '+9 hours') = ?
-      `).get(dateStr) as { count: number }
+        WHERE DATE(claimed_at AT TIME ZONE 'Asia/Seoul') = $1
+      `, [dateStr])).rows[0] as { count: number }
 
-      const redemptions = db.db.prepare(`
+      const redemptions = (await db.pool.query(`
         SELECT COUNT(*) as count FROM claims 
-        WHERE date(redeemed_at, '+9 hours') = ? 
+        WHERE DATE(redeemed_at AT TIME ZONE 'Asia/Seoul') = $1
         AND redeemed_at IS NOT NULL
-      `).get(dateStr) as { count: number }
+      `, [dateStr])).rows[0] as { count: number }
 
       dailyData.push({
         date: dateStr,
@@ -210,7 +210,7 @@ async function getTimeAnalytics() {
 async function getGeographicData() {
   try {
     // Get merchant locations with deal counts
-    const merchantLocations = db.db.prepare(`
+    const merchantLocations = (await db.pool.query(`
       SELECT 
         m.latitude as lat, 
         m.longitude as lng, 
@@ -219,10 +219,10 @@ async function getGeographicData() {
       FROM merchants m
       LEFT JOIN deals d ON m.id = d.merchant_id
       GROUP BY m.id, m.latitude, m.longitude, m.business_name
-    `).all() as Array<{ lat: number, lng: number, name: string, deals: number }>
+    `)).rows as Array<{ lat: number, lng: number, name: string, deals: number }>
 
     // Get claims by location (aggregate by lat/lng)
-    const claimsByLocation = db.db.prepare(`
+    const claimsByLocation = (await db.pool.query(`
       SELECT 
         m.latitude as lat, 
         m.longitude as lng, 
@@ -231,8 +231,8 @@ async function getGeographicData() {
       JOIN deals d ON c.deal_id = d.id
       JOIN merchants m ON d.merchant_id = m.id
       GROUP BY m.latitude, m.longitude
-      HAVING claims > 0
-    `).all() as Array<{ lat: number, lng: number, claims: number }>
+      HAVING COUNT(c.id) > 0
+    `)).rows as Array<{ lat: number, lng: number, claims: number }>
 
     return { merchantLocations, claimsByLocation }
   } catch (error) {
@@ -247,7 +247,7 @@ async function getGeographicData() {
 async function getDeviceData() {
   try {
     // Get unique device count
-    const uniqueDevices = db.db.prepare('SELECT COUNT(DISTINCT device_id) as count FROM claims').get() as { count: number }
+    const uniqueDevices = (await db.pool.query('SELECT COUNT(DISTINCT device_id) as count FROM claims')).rows[0] as { count: number }
 
     // Simulate device type breakdown and returning/new users
     // In a real implementation, this would be based on actual device fingerprinting data
@@ -323,7 +323,7 @@ async function getErrorData() {
 
 async function getMerchantActivity() {
   try {
-    const merchantActivity = db.db.prepare(`
+    const merchantActivity = (await db.pool.query(`
       SELECT 
         m.id as merchantId,
         m.business_name as name,
@@ -331,15 +331,15 @@ async function getMerchantActivity() {
         COUNT(DISTINCT c.id) as claimsReceived,
         COUNT(DISTINCT CASE WHEN c.redeemed_at IS NOT NULL THEN c.id END) as redemptionsProcessed,
         COALESCE(
-          MAX(d.created_at, c.claimed_at, c.redeemed_at),
-          datetime('now', '-7 days')
+          GREATEST(MAX(d.created_at), MAX(c.claimed_at), MAX(c.redeemed_at)),
+          NOW() - INTERVAL '7 days'
         ) as lastActivity
       FROM merchants m
       LEFT JOIN deals d ON m.id = d.merchant_id
       LEFT JOIN claims c ON d.id = c.deal_id
       GROUP BY m.id, m.business_name
       ORDER BY lastActivity DESC
-    `).all() as Array<{
+    `)).rows as Array<{
       merchantId: number
       name: string
       dealsCreated: number

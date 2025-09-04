@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    const success = db.redeemClaim(claimCode);
+    const success = await db.redeemClaim(claimCode);
     
     if (!success) {
       return NextResponse.json(

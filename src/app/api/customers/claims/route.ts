@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    const claimCode = db.claimDeal(dealId, deviceId);
+    const claimCode = await db.claimDeal(dealId, deviceId);
     
     if (!claimCode) {
       return NextResponse.json(

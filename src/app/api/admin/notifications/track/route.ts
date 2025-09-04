@@ -21,9 +21,9 @@ export async function POST(request: NextRequest) {
     
     if (status === 'clicked') {
       // Update notification click count
-      const notification = db.getNotification(notificationId)
+      const notification = await db.getNotification(notificationId)
       if (notification) {
-        db.updateNotificationStatus(notificationId, notification.status, {
+        await db.updateNotificationStatus(notificationId, notification.status, {
           total_clicked: notification.total_clicked + 1
         })
         console.log(`👆 Notification ${notificationId} click tracked`)
@@ -57,8 +57,8 @@ export async function GET(request: NextRequest) {
 
     if (notificationId) {
       // Get specific notification tracking data
-      const notification = db.getNotification(parseInt(notificationId))
-      const deliveries = db.getNotificationDeliveries(parseInt(notificationId))
+      const notification = await db.getNotification(parseInt(notificationId))
+      const deliveries = await db.getNotificationDeliveries(parseInt(notificationId))
 
       if (!notification) {
         return NextResponse.json(
@@ -85,7 +85,7 @@ export async function GET(request: NextRequest) {
       })
     } else {
       // Get overall notification analytics
-      const analytics = db.getNotificationAnalytics()
+      const analytics = await db.getNotificationAnalytics()
       return NextResponse.json({
         success: true,
         analytics

@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
     console.log('✅ Subscription validation passed, saving to database...');
     
     // Save push subscription to database
-    const saved = db.savePushSubscription(deviceId, subscription);
+    const saved = await db.savePushSubscription(deviceId, subscription);
     console.log('💾 Database save result:', saved);
     
     if (saved) {
@@ -90,7 +90,7 @@ export async function DELETE(request: NextRequest) {
     console.log('🔍 Attempting to delete subscription for device:', deviceId);
     
     // Remove push subscription from database
-    const deleted = db.deletePushSubscription(deviceId);
+    const deleted = await db.deletePushSubscription(deviceId);
     console.log('💾 Database delete result:', deleted);
     
     if (deleted) {

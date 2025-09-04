@@ -3,7 +3,8 @@ import { db } from '@/lib/database';
 
 export async function POST(request: NextRequest) {
   try {
-    const { businessName, address, phone, email, password } = await request.json();
+    const body = await request.json();
+    const { businessName, address, phone, email, password } = body;
     
     // Basic validation
     if (!businessName || !address || !email || !password) {
@@ -21,8 +22,8 @@ export async function POST(request: NextRequest) {
     }
     
     // For MVP, use hardcoded Seoul coordinates - in production would use geocoding API
-    const latitude = 37.5665;
-    const longitude = 126.9780;
+    const latitude = Number(body.latitude);
+    const longitude = Number(body.longitude);
     
     const merchant = await db.createMerchant(businessName, address, phone || '', email, latitude, longitude, password);
     

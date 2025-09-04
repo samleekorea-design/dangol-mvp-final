@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    const deal = db.createDeal(merchantId, title, description, hours, maxClaims || 999);
+    const deal = await db.createDeal(merchantId, title, description, hours, maxClaims || 999);
     
     if (!deal) {
       return NextResponse.json(
@@ -61,7 +61,7 @@ export async function GET(request: NextRequest) {
       );
     }
     
-    const deals = db.getMerchantDeals(parseInt(merchantId));
+    const deals = await db.getMerchantDeals(parseInt(merchantId));
     
     return NextResponse.json({
       success: true,

@@ -47,13 +47,13 @@ export class AutoNotificationService {
       }
 
       // Get deal and merchant information
-      const deal = db.getDeal(dealId);
+      const deal = await db.getDeal(dealId);
       if (!deal) {
         console.error(`❌ Deal not found: ${dealId}`);
         return false;
       }
 
-      const merchant = db.getMerchant(deal.merchant_id);
+      const merchant = await db.getMerchant(deal.merchant_id);
       if (!merchant) {
         console.error(`❌ Merchant not found: ${deal.merchant_id}`);
         return false;
@@ -70,7 +70,7 @@ export class AutoNotificationService {
       console.log(`📍 Location: ${parsedAddress.streetAndDistrict}`);
 
       // Get all subscribed customers (excluding merchants)
-      const allSubscriptions = db.getActivePushSubscriptions();
+      const allSubscriptions = await db.getActivePushSubscriptions();
       
       // Filter out merchant devices - we only want to notify customers
       const customerSubscriptions = allSubscriptions.filter(subscription => {
@@ -86,7 +86,7 @@ export class AutoNotificationService {
       }
 
       // Create notification record in database
-      const notification = db.createNotification({
+      const notification = await db.createNotification({
         title,
         body,
         icon: '/icon-192x192.png',
@@ -109,7 +109,7 @@ export class AutoNotificationService {
       }
 
       // Update notification with recipient count
-      db.updateNotificationStatus(notification.id, 'sending', {
+      await db.updateNotificationStatus(notification.id, 'sending', {
         total_recipients: customerSubscriptions.length
       });
 
@@ -134,7 +134,7 @@ export class AutoNotificationService {
 
       // Update notification status
       const deliveredCount = deliveryResults.filter(r => r.success).length;
-      db.updateNotificationStatus(notification.id, 'sent', {
+      await db.updateNotificationStatus(notification.id, 'sent', {
         total_delivered: deliveredCount,
         total_recipients: customerSubscriptions.length
       });
@@ -162,7 +162,7 @@ export class AutoNotificationService {
     for (const deviceId of deviceIds) {
       try {
         // Get push subscription for device
-        const subscription = db.getPushSubscription(deviceId);
+        const subscription = await db.getPushSubscription(deviceId);
         
         if (!subscription) {
           results.push({
@@ -174,7 +174,7 @@ export class AutoNotificationService {
         }
 
         // Create notification delivery record
-        const delivery = db.createNotificationDelivery(
+        const delivery = await db.createNotificationDelivery(
           notificationId,
           deviceId,
           subscription.endpoint
@@ -209,7 +209,7 @@ export class AutoNotificationService {
         if (result.success) {
           // Update delivery status to delivered
           if (delivery) {
-            db.updateNotificationDeliveryStatus(delivery.id, 'delivered');
+            await db.updateNotificationDeliveryStatus(delivery.id, 'delivered');
           }
 
           results.push({
@@ -219,7 +219,7 @@ export class AutoNotificationService {
         } else {
           // Update delivery status to failed
           if (delivery) {
-            db.updateNotificationDeliveryStatus(delivery.id, 'failed', result.error);
+            await db.updateNotificationDeliveryStatus(delivery.id, 'failed', result.error);
           }
 
           results.push({
@@ -234,13 +234,13 @@ export class AutoNotificationService {
         console.error(`❌ Failed to send FCM V1 to device ${deviceId}:`, errorMessage);
 
         // Update delivery status to failed
-        const delivery = db.createNotificationDelivery(
+        const delivery = await db.createNotificationDelivery(
           notificationId,
           deviceId,
           'unknown'
         );
         if (delivery) {
-          db.updateNotificationDeliveryStatus(delivery.id, 'failed', errorMessage);
+          await db.updateNotificationDeliveryStatus(delivery.id, 'failed', errorMessage);
         }
 
         results.push({

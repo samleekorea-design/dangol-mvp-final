@@ -88,7 +88,7 @@ async function generateExportData(config: ExportConfig) {
   try {
     // Merchants data
     if (includeFields.includes('merchants')) {
-      data.merchants = db.db.prepare(`
+      data.merchants = (await db.pool.query(`
         SELECT 
           id,
           business_name,
@@ -101,12 +101,12 @@ async function generateExportData(config: ExportConfig) {
         FROM merchants
         ${dateFilter.merchants ? `WHERE created_at >= '${dateFilter.merchants.start}' AND created_at <= '${dateFilter.merchants.end}'` : ''}
         ORDER BY created_at DESC
-      `).all()
+      `)).rows
     }
 
     // Deals data
     if (includeFields.includes('deals')) {
-      data.deals = db.db.prepare(`
+      data.deals = (await db.pool.query(`
         SELECT 
           d.id,
           d.merchant_id,
@@ -121,12 +121,12 @@ async function generateExportData(config: ExportConfig) {
         JOIN merchants m ON d.merchant_id = m.id
         ${dateFilter.deals ? `WHERE d.created_at >= '${dateFilter.deals.start}' AND d.created_at <= '${dateFilter.deals.end}'` : ''}
         ORDER BY d.created_at DESC
-      `).all()
+      `)).rows
     }
 
     // Claims data
     if (includeFields.includes('claims')) {
-      data.claims = db.db.prepare(`
+      data.claims = (await db.pool.query(`
         SELECT 
           c.id,
           c.deal_id,
@@ -142,12 +142,12 @@ async function generateExportData(config: ExportConfig) {
         JOIN merchants m ON d.merchant_id = m.id
         ${dateFilter.claims ? `WHERE c.claimed_at >= '${dateFilter.claims.start}' AND c.claimed_at <= '${dateFilter.claims.end}'` : ''}
         ORDER BY c.claimed_at DESC
-      `).all()
+      `)).rows
     }
 
     // Redemptions data
     if (includeFields.includes('redemptions')) {
-      data.redemptions = db.db.prepare(`
+      data.redemptions = (await db.pool.query(`
         SELECT 
           c.id,
           c.deal_id,
@@ -163,15 +163,15 @@ async function generateExportData(config: ExportConfig) {
         WHERE c.redeemed_at IS NOT NULL
         ${dateFilter.redemptions ? `AND c.redeemed_at >= '${dateFilter.redemptions.start}' AND c.redeemed_at <= '${dateFilter.redemptions.end}'` : ''}
         ORDER BY c.redeemed_at DESC
-      `).all()
+      `)).rows
     }
 
     // Analytics summary
     if (includeFields.includes('analytics')) {
-      const totalMerchants = db.db.prepare('SELECT COUNT(*) as count FROM merchants').get() as { count: number }
-      const totalDeals = db.db.prepare('SELECT COUNT(*) as count FROM deals').get() as { count: number }
-      const totalClaims = db.db.prepare('SELECT COUNT(*) as count FROM claims').get() as { count: number }
-      const totalRedemptions = db.db.prepare('SELECT COUNT(*) as count FROM claims WHERE redeemed_at IS NOT NULL').get() as { count: number }
+      const totalMerchants = (await db.pool.query('SELECT COUNT(*) as count FROM merchants')).rows[0] as { count: number }
+      const totalDeals = (await db.pool.query('SELECT COUNT(*) as count FROM deals')).rows[0] as { count: number }
+      const totalClaims = (await db.pool.query('SELECT COUNT(*) as count FROM claims')).rows[0] as { count: number }
+      const totalRedemptions = (await db.pool.query('SELECT COUNT(*) as count FROM claims WHERE redeemed_at IS NOT NULL')).rows[0] as { count: number }
 
       data.analytics = [{
         report_generated: new Date().toISOString(),
@@ -220,7 +220,7 @@ async function generateExportData(config: ExportConfig) {
 
     // Geographic data
     if (includeFields.includes('geographic')) {
-      data.geographic = db.db.prepare(`
+      data.geographic = (await db.pool.query(`
         SELECT 
           m.latitude,
           m.longitude,
@@ -231,7 +231,7 @@ async function generateExportData(config: ExportConfig) {
         LEFT JOIN claims c ON d.id = c.deal_id
         GROUP BY m.id, m.latitude, m.longitude, m.business_name
         ORDER BY total_claims DESC
-      `).all()
+      `)).rows
     }
 
     return data

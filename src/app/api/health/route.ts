@@ -4,11 +4,11 @@ import { db } from '@/lib/database';
 export async function GET() {
   try {
     // Test database connection
-    const testQuery = db.database.prepare('SELECT 1 as test').get() as { test: number };
+    const testQuery = (await db.pool.query('SELECT 1 as test')).rows[0] as { test: number };
     
     // Get database stats
-    const merchantCount = db.database.prepare('SELECT COUNT(*) as count FROM merchants').get() as { count: number };
-    const dealCount = db.database.prepare('SELECT COUNT(*) as count FROM deals').get() as { count: number };
+    const merchantCount = (await db.pool.query('SELECT COUNT(*) as count FROM merchants')).rows[0] as { count: number };
+    const dealCount = (await db.pool.query('SELECT COUNT(*) as count FROM deals')).rows[0] as { count: number };
     
     return NextResponse.json({
       status: 'healthy',

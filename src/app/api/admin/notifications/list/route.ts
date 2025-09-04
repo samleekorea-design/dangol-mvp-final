@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
     console.log(`📋 Fetching notification list (limit: ${limit})`)
 
     // Get notifications from database
-    const notifications = db.getNotifications(limit)
+    const notifications = await db.getNotifications(limit)
 
     // Enhance notifications with additional data
     const enhancedNotifications = notifications.map(notification => {
