@@ -7,13 +7,7 @@ self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME).then(cache => {
       return cache.addAll([
-        '/',
-        '/customer',
-        '/merchant',
-        '/admin',
-        '/images/logo-white.png',
-        '/icon-192x192.png',
-        '/badge-72x72.png'
+        '/'
       ]).catch(error => {
         console.warn('Failed to cache some resources during install:', error)
       })
