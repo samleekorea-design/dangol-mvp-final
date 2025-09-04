@@ -150,7 +150,7 @@ export default function MerchantDashboard() {
 
   const formatDate = (dateString: string) => {
     // All deals are stored as UTC, parse as UTC and format in Korean timezone
-    const date = new Date(dateString + ' UTC')
+    const date = new Date(dateString)
     return formatKoreanTime(date)
   }
 

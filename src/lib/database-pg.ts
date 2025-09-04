@@ -106,7 +106,7 @@ class DangolDB {
       if (databaseUrl) {
         poolConfig = {
           connectionString: databaseUrl,
-          ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+          ssl: { rejectUnauthorized: false }
         };
       } else {
         poolConfig = {
@@ -115,11 +115,12 @@ class DangolDB {
           database: process.env.POSTGRES_DB || 'dangol_v2',
           password: process.env.POSTGRES_PASSWORD || 'password',
           port: parseInt(process.env.POSTGRES_PORT || '5432'),
-          ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+          ssl: { rejectUnauthorized: false }
         };
       }
 
       const pool = new Pool(poolConfig);
+      this.pool = pool;
       
       console.log('🗄️  PostgreSQL pool initialized');
       
@@ -325,10 +326,10 @@ class DangolDB {
       
       try {
         const result = await client.query(`
-          INSERT INTO deals (merchant_id, title, description, expires_at, max_claims)
-          VALUES ($1, $2, $3, $4, $5)
+          INSERT INTO deals (merchant_id, title, description, expires_at, max_claims, created_at)
+          VALUES ($1, $2, $3, $4, $5, $6)
           RETURNING id
-        `, [merchantId, title, description, expiresAt, maxClaims]);
+        `, [merchantId, title, description, expiresAt, maxClaims, utcNow]);
 
         const dealId = result.rows[0].id;
         return await this.getDeal(dealId);
