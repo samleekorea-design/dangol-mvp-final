@@ -22,12 +22,6 @@
       "sizes": "72x72",
       "type": "image/png",
       "purpose": "badge"
-    },
-    {
-      "src": "/icon-512x512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
     }
   ],
   "categories": ["shopping", "business", "lifestyle"],
