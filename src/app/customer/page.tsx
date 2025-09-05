@@ -1,55 +1,12 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { RefreshCw } from 'lucide-react'
 import { deviceFingerprint } from '@/lib/deviceFingerprint'
 import { NotificationPermission } from '@/components/customer/NotificationPermission'
 import { getKoreanTime, formatKoreanTime, isDealExpired } from '@/lib/timezoneUtils'
 import { requestNotificationPermission, getFCMToken } from '@/lib/firebase-client'
 
-// Countdown timer hook
-function useCountdown(targetDate: string | undefined) {
-  const [timeLeft, setTimeLeft] = useState<{minutes: number, seconds: number} | null>(null)
-
-  useEffect(() => {
-    if (!targetDate) return
-
-    const updateTimer = () => {
-      const now = new Date().getTime()
-      const target = new Date(targetDate).getTime()
-      const difference = target - now
-
-      if (difference > 0) {
-        const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60))
-        const seconds = Math.floor((difference % (1000 * 60)) / 1000)
-        setTimeLeft({ minutes, seconds })
-      } else {
-        setTimeLeft(null)
-      }
-    }
-
-    updateTimer()
-    const timer = setInterval(updateTimer, 1000)
-
-    return () => clearInterval(timer)
-  }, [targetDate])
-
-  return timeLeft
-}
-
-// Countdown Timer Component
-function CountdownTimer({ expiryDate }: { expiryDate: string }) {
-  const timeLeft = useCountdown(expiryDate)
-
-  if (!timeLeft) {
-    return <span className="text-red-600 text-xs">만료됨</span>
-  }
-
-  return (
-    <span className="text-purple-600 text-xs font-medium">
-      {timeLeft.minutes}분 {timeLeft.seconds}초 남음
-    </span>
-  )
-}
 
 interface Deal {
   id: number
@@ -73,10 +30,19 @@ export default function CustomerPage() {
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null)
   const [radius, setRadius] = useState(200)
   const [isLoading, setIsLoading] = useState(false)
-  const [message, setMessage] = useState('')
   const [errors, setErrors] = useState<string[]>([])
   const [deviceId, setDeviceId] = useState<string>('')
-  const [claimedDeals, setClaimedDeals] = useState<{[dealId: number]: {code: string, expiry: string}}>({})
+  const [claimedDeals, setClaimedDeals] = useState<Record<number, {code: string, expiry: string}>>({})
+  const [updateCounter, setUpdateCounter] = useState(0)
+
+  // Dynamic time updates - refresh every 60 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setUpdateCounter(prev => prev + 1)
+    }, 60000) // Update every 60 seconds
+
+    return () => clearInterval(interval)
+  }, [])
 
   // Load claimed deals from localStorage
   useEffect(() => {
@@ -182,7 +148,7 @@ export default function CustomerPage() {
         }
       } catch (error) {
         console.error('❌ CustomerPage: FCM subscription error:', error)
-        console.error('FCM subscription error details:', error.message, error.stack)
+        console.error('FCM subscription error details:', (error as Error).message)
       }
     }
 
@@ -288,7 +254,7 @@ export default function CustomerPage() {
           claimCode: allClaimedDeals[deal.id]?.code,
           claimExpiry: allClaimedDeals[deal.id]?.expiry
         }))
-        setDeals(dealsWithClaimedStatus)
+        setDeals(dealsWithClaimedStatus.sort((a: any, b: any) => new Date(a.expires_at).getTime() - new Date(b.expires_at).getTime()))
       } else {
         console.log('❌ CustomerPage: API error:', dealsData.error)
         setErrors([dealsData.error || 'Failed to fetch deals'])
@@ -310,7 +276,6 @@ export default function CustomerPage() {
 
   const claimDeal = async (dealId: number) => {
     setErrors([])
-    setMessage('')
 
     // Check if already claimed locally first
     if (claimedDeals[dealId]) {
@@ -338,7 +303,6 @@ export default function CustomerPage() {
       const data = await response.json()
 
       if (data.success) {
-        setMessage(`혜택을 받았습니다! 코드: ${data.claimCode} (30분 후 만료)`)
         // Save claimed deal to localStorage
         saveClaimedDeal(dealId, data.claimCode)
         // Refresh deals to update current_claims and claimed status
@@ -366,11 +330,33 @@ export default function CustomerPage() {
 
   const getTimeRemaining = (expires_at: string) => {
     const now = new Date()
-    const expiryDate = new Date(expires_at + ' UTC')
+    
+    // Handle different date formats from the database
+    let expiryDate: Date
+    
+    // Try parsing as ISO string first
+    if (expires_at.includes('T') || expires_at.includes('Z')) {
+      expiryDate = new Date(expires_at)
+    } else {
+      // Handle Korean format dates (e.g., "2024-12-31 23:59:59")
+      // Assume UTC if no timezone info
+      expiryDate = new Date(expires_at + ' UTC')
+    }
+    
+    // Fallback: if still invalid, try direct parsing
+    if (isNaN(expiryDate.getTime())) {
+      expiryDate = new Date(expires_at)
+    }
+    
+    // If still invalid, return expired
+    if (isNaN(expiryDate.getTime())) {
+      return { text: '만료됨', isUrgent: false }
+    }
+    
     const timeDiff = expiryDate.getTime() - now.getTime()
     
     if (timeDiff <= 0) {
-      return '만료됨'
+      return { text: '만료됨', isUrgent: false }
     }
     
     const minutes = Math.floor(timeDiff / (1000 * 60))
@@ -378,11 +364,11 @@ export default function CustomerPage() {
     const days = Math.floor(hours / 24)
     
     if (days > 0) {
-      return `${days}일 남음`
+      return { text: `${days}일 남음`, isUrgent: false }
     } else if (hours > 0) {
-      return `${hours}시간 남음`
+      return { text: `${hours}시간 남음`, isUrgent: false }
     } else {
-      return `${minutes}분 남음`
+      return { text: `${minutes}분 남음`, isUrgent: minutes < 30 }
     }
   }
 
@@ -397,7 +383,7 @@ export default function CustomerPage() {
 
   const isClaimExpired = (claimExpiry?: string) => {
     if (!claimExpiry) return false
-    return new Date(claimExpiry) <= new Date()
+    return new Date(claimExpiry + 'Z') <= new Date()
   }
 
   return (
@@ -417,7 +403,9 @@ export default function CustomerPage() {
         
         {/* Header */}
         <div className="text-center mb-8 w-full">
-          <h1 className="text-3xl font-light text-white mb-2">동네 혜택 찾기</h1>
+          <div className="mb-2">
+            <h1 className="text-3xl font-light text-white">동네 혜택 찾기</h1>
+          </div>
           <p className="text-sm text-white/80">내 주변의 특별한 혜택을 찾아보세요</p>
         </div>
 
@@ -457,6 +445,22 @@ export default function CustomerPage() {
           </div>
         </div>
 
+        {/* Refresh Button */}
+        <div className="mb-6 w-full">
+          <button
+            onClick={() => location && fetchDeals(location.lat, location.lng, radius)}
+            disabled={!location || isLoading}
+            className={`w-full px-4 py-3 rounded-lg text-sm font-light transition-all duration-300 flex items-center justify-center gap-2 ${
+              location && !isLoading
+                ? 'bg-blue-100/50 text-white hover:bg-white/30 active:scale-95'
+                : 'bg-blue-100/20 text-white/50 cursor-not-allowed'
+            }`}
+          >
+            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+            새로고침
+          </button>
+        </div>
+
         {/* Messages */}
         {errors.length > 0 && (
           <div className="bg-red-500/20 backdrop-blur-sm border border-red-400/30 rounded-lg p-3 mb-4 w-full">
@@ -466,11 +470,6 @@ export default function CustomerPage() {
           </div>
         )}
 
-        {message && (
-          <div className="bg-green-500/20 backdrop-blur-sm border border-green-400/30 rounded-lg p-3 mb-4 w-full">
-            <p className="text-green-100 text-sm">{message}</p>
-          </div>
-        )}
 
         {/* Loading */}
         {isLoading && (
@@ -490,7 +489,12 @@ export default function CustomerPage() {
 
           <div className="space-y-4">
             {deals.map((deal) => (
-              <div key={deal.id} className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+              <div key={deal.id} className={`bg-white rounded-xl border border-gray-200 p-6 shadow-sm relative ${deal.claimed ? 'opacity-70' : ''}`}>
+                {deal.claimed && (
+                  <div className="absolute top-3 right-3 bg-green-500 text-white text-xs font-medium px-2 py-1 rounded-full z-10">
+                    받음
+                  </div>
+                )}
                 <div className="mb-4">
                   <div className="flex items-start gap-3 mb-3">
                     {/* Icon Circle */}
@@ -534,6 +538,14 @@ export default function CustomerPage() {
                       </svg>
                       <p>만료: {formatDate(deal.expires_at)}</p>
                     </div>
+                    <div className="flex items-center gap-2">
+                      <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <p className={`font-medium ${getTimeRemaining(deal.expires_at).isUrgent ? 'text-red-600' : 'text-gray-700'}`}>
+                        {getTimeRemaining(deal.expires_at).text}
+                      </p>
+                    </div>
                   </div>
                 </div>
 
@@ -566,11 +578,10 @@ export default function CustomerPage() {
                     )}
                   </div>
 
-                  {deal.claimed && !isClaimExpired(deal.claimExpiry) ? (
+                  {deal.claimed ? (
                     <div className="text-right">
-                      <div className="text-sm font-medium text-purple-700 mb-1">코드: {deal.claimCode}</div>
-                      <div className="text-xs">
-                        {deal.claimExpiry && <CountdownTimer expiryDate={deal.claimExpiry} />}
+                      <div className="text-sm font-medium text-purple-700 mb-1">
+                        코드: {isClaimExpired(deal.claimExpiry) ? '코드 만료' : deal.claimCode}
                       </div>
                     </div>
                   ) : (

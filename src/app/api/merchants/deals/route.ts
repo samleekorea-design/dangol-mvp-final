@@ -4,23 +4,40 @@ import { autoNotificationService } from '@/lib/autoNotificationService';
 
 export async function POST(request: NextRequest) {
   try {
-    const { merchantId, title, description, hours, maxClaims } = await request.json();
+    const { merchantId, title, description, hours, minutes, maxClaims } = await request.json();
     
-    if (!merchantId || !title || !description || !hours) {
+    if (!merchantId || !title || !description || (hours === undefined && minutes === undefined)) {
       return NextResponse.json(
         { success: false, error: 'Missing required fields' },
         { status: 400 }
       );
     }
     
-    if (hours < 1 || hours > 24) {
+    const hoursValue = hours || 0;
+    const minutesValue = minutes || 0;
+    
+    if (hoursValue < 0 || hoursValue > 23) {
       return NextResponse.json(
-        { success: false, error: 'Hours must be between 1 and 24' },
+        { success: false, error: 'Hours must be between 0 and 23' },
         { status: 400 }
       );
     }
     
-    const deal = await db.createDeal(merchantId, title, description, hours, maxClaims || 999);
+    if (minutesValue < 0 || minutesValue > 59) {
+      return NextResponse.json(
+        { success: false, error: 'Minutes must be between 0 and 59' },
+        { status: 400 }
+      );
+    }
+    
+    if (hoursValue === 0 && minutesValue === 0) {
+      return NextResponse.json(
+        { success: false, error: 'Deal must have at least 1 minute validity' },
+        { status: 400 }
+      );
+    }
+    
+    const deal = await db.createDeal(merchantId, title, description, hoursValue, minutesValue, maxClaims || 999);
     
     if (!deal) {
       return NextResponse.json(

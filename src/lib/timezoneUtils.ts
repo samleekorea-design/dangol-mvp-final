@@ -8,22 +8,29 @@ export const KOREA_TIMEZONE = 'Asia/Seoul';
  * Gets the current time in Korean timezone
  */
 export function getKoreanTime(): Date {
-  // Use proper timezone conversion instead of manual offset
+  // Get current time in Korean timezone properly
   const now = new Date();
-  const koreanTimeString = now.toLocaleString('en-US', { timeZone: 'Asia/Seoul' });
-  return new Date(koreanTimeString);
+  // Convert to Korean time by getting the time string in ISO format for Seoul timezone
+  const koreanTimeString = new Intl.DateTimeFormat('sv-SE', { 
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit', 
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  }).format(now);
+  // Parse the Korean time as if it were UTC to get a Date object representing Korean time
+  return new Date(koreanTimeString + 'Z');
 }
 
 /**
- * Checks if the current time in Korea is within business hours (9am-10pm)
- * @returns {boolean} true if current Korean time is between 9am-10pm
+ * Checks if the current time in Korea is within business hours (9am-8pm)
+ * @returns {boolean} true if current Korean time is between 9am-8pm
  */
 export function isKoreanBusinessHours(): boolean {
-  const koreanTime = getKoreanTime();
-  const hour = koreanTime.getHours();
-  
-  // Business hours: 9am (9) to 10pm (22)
-  return hour >= 9 && hour < 22;
+  const koreaHour = (new Date().getUTCHours() + 9) % 24;
+  return koreaHour >= 9 && koreaHour < 20;
 }
 
 /**
@@ -36,15 +43,29 @@ export function getKoreanHour(): number {
 /**
  * Formats a date to Korean timezone string
  */
-export function formatKoreanTime(date: Date = new Date()): string {
-  return date.toLocaleString('ko-KR', {
+export function formatKoreanTime(date: Date | string = new Date()): string {
+  // Handle both Date objects and timestamp strings
+  let dateObj: Date;
+  
+  if (typeof date === 'string') {
+    // Handle timestamp strings like '2025-09-05 07:50:25.04+00'
+    dateObj = new Date(date);
+  } else {
+    dateObj = date;
+  }
+  
+  // Validate that we have a valid Date object
+  if (isNaN(dateObj.getTime())) {
+    throw new Error(`Invalid date provided: ${date}`);
+  }
+  
+  return dateObj.toLocaleString('ko-KR', {
     timeZone: KOREA_TIMEZONE,
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
     hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit'
+    minute: '2-digit'
   });
 }
 
@@ -89,15 +110,10 @@ export function getNextKoreanBusinessHour(): Date {
 }
 
 /**
- * Check if a deal is expired with proper Korean timezone handling
- * All deals are stored as UTC, but expiration is checked against Korean time
+ * Check if a deal is expired using UTC timestamps
  */
 export function isDealExpired(dealId: number, expiresAt: string): boolean {
-  const koreanNow = getKoreanTime();
-  
-  // All deals are stored as UTC strings, parse as UTC and compare with Korean time
-  const expiryDate = new Date(expiresAt + ' UTC');
-  return expiryDate < koreanNow;
+  return new Date(expiresAt) < new Date();
 }
 
 /**

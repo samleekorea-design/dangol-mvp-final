@@ -26,6 +26,7 @@ export default function MerchantDashboard() {
     title: '',
     description: '',
     hours: '',
+    minutes: '',
     maxClaims: ''
   })
 
@@ -76,8 +77,18 @@ export default function MerchantDashboard() {
     
     if (!formData.title.trim()) newErrors.push('Deal title is required')
     if (!formData.description.trim()) newErrors.push('Deal description is required')
-    if (!formData.hours || Number(formData.hours) < 1 || Number(formData.hours) > 24) {
-      newErrors.push('Hours must be between 1 and 24')
+    
+    const hours = formData.hours === '' ? 0 : Number(formData.hours)
+    const minutes = formData.minutes === '' ? 0 : Number(formData.minutes)
+    
+    if (hours < 0 || hours > 23) {
+      newErrors.push('Hours must be between 0 and 23')
+    }
+    if (minutes < 0 || minutes > 59) {
+      newErrors.push('Minutes must be between 0 and 59')
+    }
+    if (hours === 0 && minutes === 0) {
+      newErrors.push('Deal must have at least 1 minute validity')
     }
     if (!formData.maxClaims || Number(formData.maxClaims) < 1) {
       newErrors.push('Max claims must be at least 1')
@@ -109,7 +120,8 @@ export default function MerchantDashboard() {
           merchantId: merchantId!,
           title: formData.title,
           description: formData.description,
-          hours: Number(formData.hours),
+          hours: formData.hours === '' ? 0 : Number(formData.hours),
+          minutes: formData.minutes === '' ? 0 : Number(formData.minutes),
           maxClaims: Number(formData.maxClaims)
         }),
       })
@@ -122,6 +134,7 @@ export default function MerchantDashboard() {
           title: '',
           description: '',
           hours: '',
+          minutes: '',
           maxClaims: ''
         })
         setShowForm(false)
@@ -143,10 +156,6 @@ export default function MerchantDashboard() {
     })
   }
 
-  const isExpired = (deal: Deal) => {
-    // Use backward-compatible expiration check
-    return isDealExpired(deal.id, deal.expires_at)
-  }
 
   const formatDate = (dateString: string) => {
     // All deals are stored as UTC, parse as UTC and format in Korean timezone
@@ -155,7 +164,7 @@ export default function MerchantDashboard() {
   }
 
   const totalDeals = deals.length
-  const activeDeals = deals.filter(deal => !isExpired(deal)).length
+  const activeDeals = deals.filter(deal => !isDealExpired(deal.id, deal.expires_at)).length
   const totalClaims = deals.reduce((sum, deal) => sum + deal.current_claims, 0)
 
   if (!isAuthenticated) {
@@ -234,8 +243,14 @@ export default function MerchantDashboard() {
           </div>
         </div>
 
-        {/* Create Deal Button */}
-        <div className="mb-6 w-full">
+        {/* Action Buttons */}
+        <div className="mb-6 w-full space-y-3">
+          <button
+            onClick={() => fetchDeals()}
+            className="w-full bg-green-500 text-white font-light py-3 px-4 rounded-lg hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-300/50 transition-all duration-300"
+          >
+            새로고침
+          </button>
           <button
             onClick={() => setShowForm(!showForm)}
             className="w-full bg-white text-blue-600 font-light py-3 px-4 rounded-lg hover:bg-white/90 focus:outline-none focus:ring-2 focus:ring-blue-300/50 transition-all duration-300"
@@ -282,40 +297,61 @@ export default function MerchantDashboard() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label htmlFor="hours" className="block text-sm font-light text-white mb-2">
-                    유효 시간 (1-24) *
-                  </label>
-                  <input
-                    type="number"
-                    id="hours"
-                    name="hours"
-                    min="1"
-                    max="24"
-                    value={formData.hours}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 rounded-lg bg-white/10 backdrop-blur-sm border border-white/20 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-blue-300/50 focus:border-blue-300/60"
-                    placeholder="시간"
-                    required
-                  />
+              <div>
+                <label className="block text-sm font-light text-white mb-2">
+                  유효 시간 *
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label htmlFor="hours" className="block text-xs font-light text-white/80 mb-1">
+                      시간 (0-23)
+                    </label>
+                    <input
+                      type="number"
+                      id="hours"
+                      name="hours"
+                      min="0"
+                      max="23"
+                      value={formData.hours}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 rounded-lg bg-white/10 backdrop-blur-sm border border-white/20 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-blue-300/50 focus:border-blue-300/60"
+                      placeholder="시간"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="minutes" className="block text-xs font-light text-white/80 mb-1">
+                      분 (0-59)
+                    </label>
+                    <input
+                      type="number"
+                      id="minutes"
+                      name="minutes"
+                      min="0"
+                      max="59"
+                      value={formData.minutes}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 rounded-lg bg-white/10 backdrop-blur-sm border border-white/20 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-blue-300/50 focus:border-blue-300/60"
+                      placeholder="분"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label htmlFor="maxClaims" className="block text-sm font-light text-white mb-2">
-                    최대 사용자 수 *
-                  </label>
-                  <input
-                    type="number"
-                    id="maxClaims"
-                    name="maxClaims"
-                    min="1"
-                    value={formData.maxClaims}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 rounded-lg bg-white/10 backdrop-blur-sm border border-white/20 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-blue-300/50 focus:border-blue-300/60"
-                    placeholder="인원"
-                    required
-                  />
-                </div>
+              </div>
+
+              <div>
+                <label htmlFor="maxClaims" className="block text-sm font-light text-white mb-2">
+                  최대 사용자 수 *
+                </label>
+                <input
+                  type="number"
+                  id="maxClaims"
+                  name="maxClaims"
+                  min="1"
+                  value={formData.maxClaims}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 rounded-lg bg-white/10 backdrop-blur-sm border border-white/20 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-blue-300/50 focus:border-blue-300/60"
+                  placeholder="인원"
+                  required
+                />
               </div>
 
               {errors.length > 0 && (
@@ -363,12 +399,11 @@ export default function MerchantDashboard() {
                     <div className="flex-1">
                       <h3 className="text-lg font-light text-white mb-1">
                         {deal.title}
-                        {isExpired(deal) && (
-                          <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-500/30 text-red-200">
+                        {isDealExpired(deal.id, deal.expires_at) ? (
+                          <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-500/30 text-gray-300">
                             만료
                           </span>
-                        )}
-                        {!isExpired(deal) && (
+                        ) : (
                           <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-500/30 text-green-200">
                             활성
                           </span>

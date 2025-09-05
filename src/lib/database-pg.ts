@@ -1,7 +1,6 @@
 import { Pool, PoolClient } from 'pg';
 import bcrypt from 'bcrypt';
 import { v4 as uuidv4 } from 'uuid';
-import { getKoreanTime } from './timezoneUtils';
 
 export interface Merchant {
   id: number;
@@ -311,14 +310,17 @@ class DangolDB {
   }
 
   // DEAL OPERATIONS
-  async createDeal(merchantId: number, title: string, description: string, hoursValid: number, maxClaims: number = 999): Promise<Deal | null> {
+  async createDeal(merchantId: number, title: string, description: string, hours: number, minutes: number, maxClaims: number = 999): Promise<Deal | null> {
     try {
       const utcNow = new Date();
-      const expiresAt = new Date(utcNow.getTime() + hoursValid * 60 * 60 * 1000);
+      const totalMinutes = hours * 60 + minutes;
+      const expiresAt = new Date(utcNow.getTime() + totalMinutes * 60 * 1000);
       
-      console.log(`🕐 Creating deal with UTC expiration (for consistency):`, {
+      console.log(`🕐 Creating deal with UTC time expiration:`, {
         utcNow: utcNow.toISOString(),
-        hoursValid,
+        hours,
+        minutes,
+        totalMinutes,
         expiresAt: expiresAt.toISOString()
       });
       
@@ -343,16 +345,32 @@ class DangolDB {
   }
 
   isDealExpired(deal: Deal): boolean {
-    const koreanNow = getKoreanTime();
+    const utcNow = new Date();
     const TIMEZONE_FIX_CUTOFF_ID = 21;
     
+    // Check if deal has expired by timestamp
+    let timestampExpired = false;
     if (deal.id >= TIMEZONE_FIX_CUTOFF_ID) {
       const expiryDate = new Date(deal.expires_at);
-      return expiryDate < koreanNow;
+      timestampExpired = expiryDate < utcNow;
     } else {
       const expiryDate = new Date(deal.expires_at + ' UTC');
-      return expiryDate < koreanNow;
+      timestampExpired = expiryDate < utcNow;
     }
+    
+    // If already expired by timestamp, return true
+    if (timestampExpired) {
+      return true;
+    }
+    
+    // Check business hours using UTC-based Korean time calculation
+    const koreaHour = new Date().getUTCHours() + 9;
+    const adjustedKoreaHour = koreaHour >= 24 ? koreaHour - 24 : koreaHour;
+    
+    // Business hours: 9am-8pm KST (9-20)
+    const isOutsideBusinessHours = adjustedKoreaHour < 9 || adjustedKoreaHour >= 20;
+    
+    return isOutsideBusinessHours;
   }
 
   async getDeal(id: number): Promise<Deal | null> {
