@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { deviceFingerprint } from '@/lib/deviceFingerprint'
 import { NotificationPermission } from '@/components/customer/NotificationPermission'
 import { getKoreanTime, formatKoreanTime, isDealExpired } from '@/lib/timezoneUtils'
+import { requestNotificationPermission, getFCMToken } from '@/lib/firebase-client'
 
 // Countdown timer hook
 function useCountdown(targetDate: string | undefined) {
@@ -67,6 +68,7 @@ interface Deal {
 }
 
 export default function CustomerPage() {
+  console.log('🚀🚀🚀 CustomerPage MOUNTING')
   const [deals, setDeals] = useState<Deal[]>([])
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null)
   const [radius, setRadius] = useState(200)
@@ -108,7 +110,9 @@ export default function CustomerPage() {
   useEffect(() => {
     const initializeDeviceId = async () => {
       try {
-        const id = await deviceFingerprint.getDeviceId()
+        const id = await deviceFingerprint.getDeviceId().catch(() => {
+          return 'device_' + Math.random().toString(36).substr(2, 9)
+        })
         console.log('🔐 CustomerPage: Device ID initialized:', id)
         setDeviceId(id)
       } catch (error) {
@@ -128,6 +132,63 @@ export default function CustomerPage() {
     }
   }, [deviceId])
 
+  // Handle FCM subscription
+  useEffect(() => {
+    const handleFCMSubscription = async () => {
+      console.log('Device ID:', deviceId)
+      console.log('Location:', location)
+      console.log('Starting FCM subscription...')
+      if (!location) return
+
+      try {
+        console.log('Checking notification permission...')
+        const hasPermission = await requestNotificationPermission()
+        
+        if (hasPermission) {
+          console.log('Notification permission granted, generating FCM token...')
+          const fcmToken = await getFCMToken()
+          
+          if (fcmToken) {
+            console.log('FCM Token:', fcmToken)
+            console.log('FCM token generated successfully, making API call...')
+            const response = await fetch('/api/customers/subscriptions', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ 
+                deviceId: deviceId, 
+                subscription: { 
+                  endpoint: 'FCM', 
+                  keys: { 
+                    auth: fcmToken, 
+                    p256dh: 'FCM' 
+                  } 
+                } 
+              }),
+            })
+
+            const data = await response.json()
+            if (data.success) {
+              console.log('✅ CustomerPage: Successfully subscribed for notifications')
+            } else {
+              console.error('❌ CustomerPage: Subscription failed:', data.error)
+            }
+          } else {
+            console.log('❌ CustomerPage: Failed to get FCM token')
+          }
+        } else {
+          console.log('❌ CustomerPage: Notification permission denied')
+        }
+      } catch (error) {
+        console.error('❌ CustomerPage: FCM subscription error:', error)
+        console.error('FCM subscription error details:', error.message, error.stack)
+      }
+    }
+
+    handleFCMSubscription()
+  }, [location])
+
   const requestLocation = () => {
     console.log('📍 CustomerPage: requestLocation() called')
     if ('geolocation' in navigator) {
@@ -144,13 +205,29 @@ export default function CustomerPage() {
         },
         (error) => {
           console.error('❌ CustomerPage: Geolocation error:', error)
-          console.log('❌ CustomerPage: Setting error message for geolocation failure')
-          setErrors(['위치 접근이 거부되었습니다. 브라우저 설정에서 위치 접근을 허용하거나 "위치 업데이트" 버튼을 눌러 다시 시도해 주세요.'])
+          console.log('Using default test location')
+          const defaultLocation = {
+            lat: 37.4822,
+            lng: 127.0575
+          }
+          console.log('📍 CustomerPage: Using fallback location:', defaultLocation)
+          setLocation(defaultLocation)
+          fetchDeals(defaultLocation.lat, defaultLocation.lng, radius)
+        },
+        {
+          timeout: 5000
         }
       )
     } else {
       console.log('❌ CustomerPage: Geolocation not supported by browser')
-      setErrors(['브라우저가 위치 서비스를 지원하지 않습니다. "위치 업데이트" 버튼을 눌러 수동으로 위치를 설정해 주세요.'])
+      console.log('Using default test location')
+      const defaultLocation = {
+        lat: 37.4822,
+        lng: 127.0575
+      }
+      console.log('📍 CustomerPage: Using fallback location:', defaultLocation)
+      setLocation(defaultLocation)
+      fetchDeals(defaultLocation.lat, defaultLocation.lng, radius)
     }
   }
 
