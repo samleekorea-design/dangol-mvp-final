@@ -120,6 +120,8 @@ class DangolDB {
 
       const pool = new Pool(poolConfig);
       this.pool = pool;
+      this.pool.on('error', (err) => { console.error('Unexpected pool error:', err); });
+      this.pool.connect().then(() => console.log('Database connected successfully')).catch(err => console.error('Database connection failed:', err));
       
       console.log('🗄️  PostgreSQL pool initialized');
       
@@ -267,7 +269,7 @@ class DangolDB {
         client.release();
       }
     } catch (error) {
-      console.error('Create merchant error details:', error);
+      console.error('Create merchant error details:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
       throw error;
     }
   }
