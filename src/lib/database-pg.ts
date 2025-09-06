@@ -88,6 +88,9 @@ class DangolDB {
   private pool: Pool;
 
   constructor() {
+    console.log('DATABASE_URL exists:', !!process.env.DATABASE_URL);
+    console.log('DATABASE_URL starts with:', process.env.DATABASE_URL?.substring(0, 20) + '...');
+    console.log('DATABASE_URL includes sslmode:', process.env.DATABASE_URL?.includes('sslmode'));
     this.pool = this.initializeDatabase();
   }
 
