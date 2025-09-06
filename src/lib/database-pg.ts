@@ -267,8 +267,8 @@ class DangolDB {
         client.release();
       }
     } catch (error) {
-      console.error('Create merchant error:', error);
-      return null;
+      console.error('Create merchant error details:', error);
+      throw error;
     }
   }
 

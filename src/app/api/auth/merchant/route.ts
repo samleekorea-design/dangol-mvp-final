@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Merchant registration error:', error);
     return NextResponse.json(
-      { success: false, error: 'Registration failed' },
+      { success: false, error: (error as Error).message || 'Registration failed' },
       { status: 500 }
     );
   }
