@@ -45,10 +45,11 @@ export async function POST(request: NextRequest) {
     
   } catch (error) {
     console.error('Merchant registration error:', error);
-    return NextResponse.json(
-      { success: false, error: (error as Error).message || 'Registration failed' },
-      { status: 500 }
-    );
+    return NextResponse.json({ 
+      success: false, 
+      error: 'PRODUCTION DEBUG: ' + (error.message || error || 'Unknown error'), 
+      timestamp: new Date().toISOString() 
+    }, { status: 409 });
   }
 }
 
@@ -83,9 +84,10 @@ export async function PUT(request: NextRequest) {
     
   } catch (error) {
     console.error('Merchant login error:', error);
-    return NextResponse.json(
-      { success: false, error: 'Login failed' },
-      { status: 500 }
-    );
+    return NextResponse.json({ 
+      success: false, 
+      error: 'PRODUCTION DEBUG: ' + (error.message || error || 'Unknown error'), 
+      timestamp: new Date().toISOString() 
+    }, { status: 409 });
   }
 }
