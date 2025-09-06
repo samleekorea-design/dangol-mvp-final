@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react'
 import { RefreshCw } from 'lucide-react'
 import { deviceFingerprint } from '@/lib/deviceFingerprint'
-import { NotificationPermission } from '@/components/customer/NotificationPermission'
 import { getKoreanTime, formatKoreanTime, isDealExpired } from '@/lib/timezoneUtils'
 import { requestNotificationPermission, getFCMToken } from '@/lib/firebase-client'
 
@@ -604,8 +603,6 @@ export default function CustomerPage() {
         </div>
       </div>
 
-      {/* Notification Permission Component */}
-      <NotificationPermission />
     </div>
   )
 }

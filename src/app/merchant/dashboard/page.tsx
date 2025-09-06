@@ -21,6 +21,7 @@ export default function MerchantDashboard() {
   const [errors, setErrors] = useState<string[]>([])
   const [showForm, setShowForm] = useState(false)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [showExpiredDeals, setShowExpiredDeals] = useState(false)
 
   const [formData, setFormData] = useState({
     title: '',
@@ -164,7 +165,9 @@ export default function MerchantDashboard() {
   }
 
   const totalDeals = deals.length
-  const activeDeals = deals.filter(deal => !isDealExpired(deal.id, deal.expires_at)).length
+  const activeDealsList = deals.filter(deal => !isDealExpired(deal.id, deal.expires_at))
+  const expiredDealsList = deals.filter(deal => isDealExpired(deal.id, deal.expires_at))
+  const activeDeals = activeDealsList.length
   const totalClaims = deals.reduce((sum, deal) => sum + deal.current_claims, 0)
 
   if (!isAuthenticated) {
@@ -247,7 +250,7 @@ export default function MerchantDashboard() {
         <div className="mb-6 w-full space-y-3">
           <button
             onClick={() => fetchDeals()}
-            className="w-full bg-green-500 text-white font-light py-3 px-4 rounded-lg hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-300/50 transition-all duration-300"
+            className="w-full bg-blue-500 text-white font-light py-3 px-4 rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-300/50 transition-all duration-300"
           >
             새로고침
           </button>
@@ -255,7 +258,7 @@ export default function MerchantDashboard() {
             onClick={() => setShowForm(!showForm)}
             className="w-full bg-white text-blue-600 font-light py-3 px-4 rounded-lg hover:bg-white/90 focus:outline-none focus:ring-2 focus:ring-blue-300/50 transition-all duration-300"
           >
-            {showForm ? '취소' : '새 혜택 만들기'}
+            {showForm ? '취소' : '새 행사 만들기'}
           </button>
         </div>
 
@@ -381,33 +384,28 @@ export default function MerchantDashboard() {
           </div>
         )}
 
-        {/* Deals List */}
-        <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 w-full">
+        {/* Active Deals Section */}
+        <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 w-full mb-6">
           <div className="px-6 py-4 border-b border-white/20">
-            <h2 className="text-xl font-light text-white">내 혜택 목록</h2>
+            <h2 className="text-xl font-light text-white">현재 진행중인 행사</h2>
+            <p className="text-sm text-white/70 mt-1">{activeDeals}개의 활성 혜택</p>
           </div>
         
-          {deals.length === 0 ? (
+          {activeDealsList.length === 0 ? (
             <div className="px-6 py-8 text-center text-white/80">
-              아직 만들어진 혜택이 없습니다. 첫 번째 혜택을 만들어보세요!
+              현재 활성 중인 혜택이 없습니다.
             </div>
           ) : (
             <div className="divide-y divide-white/20">
-              {deals.map((deal) => (
+              {activeDealsList.map((deal) => (
                 <div key={deal.id} className="px-6 py-4">
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
                       <h3 className="text-lg font-light text-white mb-1">
                         {deal.title}
-                        {isDealExpired(deal.id, deal.expires_at) ? (
-                          <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-500/30 text-gray-300">
-                            만료
-                          </span>
-                        ) : (
-                          <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-500/30 text-green-200">
-                            활성
-                          </span>
-                        )}
+                        <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-500/30 text-green-200">
+                          활성
+                        </span>
                       </h3>
                       <p className="text-white/80 mb-2">{deal.description}</p>
                       <div className="text-sm text-white/60">
@@ -427,6 +425,73 @@ export default function MerchantDashboard() {
             </div>
           )}
         </div>
+
+        {/* Expired Deals Section */}
+        {expiredDealsList.length > 0 && (
+          <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 w-full">
+            <button
+              onClick={() => setShowExpiredDeals(!showExpiredDeals)}
+              className="w-full px-6 py-4 border-b border-white/20 text-left hover:bg-white/5 transition-colors duration-200"
+            >
+              <div className="flex justify-between items-center">
+                <div>
+                  <h2 className="text-xl font-light text-white">만료된 행사</h2>
+                  <p className="text-sm text-white/70 mt-1">{expiredDealsList.length}개의 만료된 혜택</p>
+                </div>
+                <div className="text-white/70">
+                  {showExpiredDeals ? (
+                    <svg className="w-5 h-5 transform transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                    </svg>
+                  ) : (
+                    <svg className="w-5 h-5 transform transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  )}
+                </div>
+              </div>
+            </button>
+          
+            {showExpiredDeals && (
+              <div className="divide-y divide-white/20">
+                {expiredDealsList.map((deal) => (
+                  <div key={deal.id} className="px-6 py-4">
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <h3 className="text-lg font-light text-white mb-1">
+                          {deal.title}
+                          <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-500/30 text-gray-300">
+                            만료
+                          </span>
+                        </h3>
+                        <p className="text-white/80 mb-2">{deal.description}</p>
+                        <div className="text-sm text-white/60">
+                          <p>사용: {deal.current_claims} / {deal.max_claims}</p>
+                          <p>만료: {formatDate(deal.expires_at)}</p>
+                          <p>생성: {formatDate(deal.created_at)}</p>
+                        </div>
+                      </div>
+                      <div className="ml-4 text-right">
+                        <div className="text-sm font-light text-white/80">
+                          #{deal.id}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* No deals message */}
+        {deals.length === 0 && (
+          <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 w-full">
+            <div className="px-6 py-8 text-center text-white/80">
+              아직 만들어진 혜택이 없습니다. 첫 번째 혜택을 만들어보세요!
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
