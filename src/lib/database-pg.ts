@@ -111,13 +111,14 @@ class DangolDB {
           ssl: databaseUrl.includes('localhost') ? false : { rejectUnauthorized: false }
         };
       } else {
+        const host = process.env.POSTGRES_HOST || 'localhost';
         poolConfig = {
           user: process.env.POSTGRES_USER || 'postgres',
-          host: process.env.POSTGRES_HOST || 'localhost',
+          host: host,
           database: process.env.POSTGRES_DB || 'dangol_v2',
           password: process.env.POSTGRES_PASSWORD || 'password',
           port: parseInt(process.env.POSTGRES_PORT || '5432'),
-          ssl: { rejectUnauthorized: false }
+          ssl: host.includes('localhost') ? false : { rejectUnauthorized: false }
         };
       }
 
