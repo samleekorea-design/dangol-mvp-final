@@ -108,7 +108,7 @@ class DangolDB {
       if (databaseUrl) {
         poolConfig = {
           connectionString: databaseUrl,
-          ssl: { rejectUnauthorized: false }
+          ssl: databaseUrl.includes('localhost') ? false : { rejectUnauthorized: false }
         };
       } else {
         poolConfig = {
