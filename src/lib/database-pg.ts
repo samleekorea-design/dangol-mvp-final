@@ -108,7 +108,7 @@ class DangolDB {
       if (databaseUrl) {
         poolConfig = {
           connectionString: databaseUrl,
-          ssl: process.env.CA_CERT ? { rejectUnauthorized: true, ca: process.env.CA_CERT } : process.env.DATABASE_URL?.includes('ondigitalocean.com') ? { rejectUnauthorized: false } : false
+          ssl: process.env.CA_CERT_BASE64 ? { rejectUnauthorized: true, ca: Buffer.from(process.env.CA_CERT_BASE64, 'base64').toString('utf8') } : process.env.DATABASE_URL?.includes('ondigitalocean.com') ? { rejectUnauthorized: false } : false
         };
       } else {
         const host = process.env.POSTGRES_HOST || 'localhost';
@@ -118,7 +118,7 @@ class DangolDB {
           database: process.env.POSTGRES_DB || 'dangol_v2',
           password: process.env.POSTGRES_PASSWORD || 'password',
           port: parseInt(process.env.POSTGRES_PORT || '5432'),
-          ssl: process.env.CA_CERT ? { rejectUnauthorized: true, ca: process.env.CA_CERT } : process.env.DATABASE_URL?.includes('ondigitalocean.com') ? { rejectUnauthorized: false } : false
+          ssl: process.env.CA_CERT_BASE64 ? { rejectUnauthorized: true, ca: Buffer.from(process.env.CA_CERT_BASE64, 'base64').toString('utf8') } : process.env.DATABASE_URL?.includes('ondigitalocean.com') ? { rejectUnauthorized: false } : false
         };
       }
 
