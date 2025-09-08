@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { Pool } from 'pg'
 
 export async function GET(request: NextRequest) {
+  const deploymentVersion = 'v2-ssl-fixed-' + new Date().toISOString();
   const result = {
     envVarExists: false,
     envVarFormat: '',
@@ -76,6 +77,7 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({
     success: true,
     timestamp: new Date().toISOString(),
+    version: deploymentVersion,
     results: result
   })
 }
