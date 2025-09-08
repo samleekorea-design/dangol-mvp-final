@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Pool } from 'pg'
+import pkg from 'pg/package.json'
 
 export async function GET(request: NextRequest) {
   const deploymentVersion = 'v2-ssl-fixed-' + new Date().toISOString();
@@ -42,7 +43,7 @@ export async function GET(request: NextRequest) {
       console.log('EXACT DATABASE_URL:', process.env.DATABASE_URL);
       pool = new Pool({
         connectionString: process.env.DATABASE_URL,
-        ssl: process.env.DATABASE_URL?.includes('localhost') ? false : { rejectUnauthorized: false, require: true }
+        ssl: { rejectUnauthorized: false, ca: process.env.DATABASE_URL?.includes('ondigitalocean.com') ? undefined : undefined }
       })
       result.poolCreated = true
       
@@ -79,6 +80,8 @@ export async function GET(request: NextRequest) {
     success: true,
     timestamp: new Date().toISOString(),
     version: deploymentVersion,
+    pgVersion: pkg.version,
+    nodeVersion: process.version,
     results: result,
     fullUrl: process.env.DATABASE_URL ? 'exists-length-' + process.env.DATABASE_URL.length : 'missing'
   })
