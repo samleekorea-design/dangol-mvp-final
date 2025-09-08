@@ -1,8 +1,6 @@
 import { Pool, PoolClient } from 'pg';
 import bcrypt from 'bcrypt';
 import { v4 as uuidv4 } from 'uuid';
-import fs from 'fs';
-import path from 'path';
 
 export interface Merchant {
   id: number;
@@ -110,10 +108,7 @@ class DangolDB {
       if (databaseUrl) {
         poolConfig = {
           connectionString: databaseUrl,
-          ssl: {
-            rejectUnauthorized: true,
-            ca: fs.readFileSync(path.join(process.cwd(), 'certs', 'ca-certificate.crt')).toString()
-          }
+          ssl: process.env.CA_CERT ? { rejectUnauthorized: true, ca: process.env.CA_CERT } : process.env.DATABASE_URL?.includes('ondigitalocean.com') ? { rejectUnauthorized: false } : false
         };
       } else {
         const host = process.env.POSTGRES_HOST || 'localhost';
@@ -123,10 +118,7 @@ class DangolDB {
           database: process.env.POSTGRES_DB || 'dangol_v2',
           password: process.env.POSTGRES_PASSWORD || 'password',
           port: parseInt(process.env.POSTGRES_PORT || '5432'),
-          ssl: {
-            rejectUnauthorized: true,
-            ca: fs.readFileSync(path.join(process.cwd(), 'certs', 'ca-certificate.crt')).toString()
-          }
+          ssl: process.env.CA_CERT ? { rejectUnauthorized: true, ca: process.env.CA_CERT } : process.env.DATABASE_URL?.includes('ondigitalocean.com') ? { rejectUnauthorized: false } : false
         };
       }
 

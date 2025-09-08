@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Pool } from 'pg'
 import pkg from 'pg/package.json'
-import fs from 'fs'
-import path from 'path'
 
 export async function GET(request: NextRequest) {
   const deploymentVersion = 'v2-ssl-fixed-' + new Date().toISOString();
@@ -45,7 +43,7 @@ export async function GET(request: NextRequest) {
       console.log('EXACT DATABASE_URL:', process.env.DATABASE_URL);
       pool = new Pool({
         connectionString: process.env.DATABASE_URL,
-        ssl: { rejectUnauthorized: true, ca: fs.readFileSync(path.join(process.cwd(), 'certs', 'ca-certificate.crt')).toString() }
+        ssl: process.env.CA_CERT ? { rejectUnauthorized: true, ca: process.env.CA_CERT } : process.env.DATABASE_URL?.includes('ondigitalocean.com') ? { rejectUnauthorized: false } : false
       })
       result.poolCreated = true
       
