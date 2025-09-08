@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
       console.log('EXACT DATABASE_URL:', process.env.DATABASE_URL);
       pool = new Pool({
         connectionString: process.env.DATABASE_URL,
-        ssl: process.env.CA_CERT_BASE64 ? { rejectUnauthorized: true, ca: Buffer.from(process.env.CA_CERT_BASE64, 'base64').toString('utf8') } : process.env.DATABASE_URL?.includes('ondigitalocean.com') ? { rejectUnauthorized: false } : false
+        ssl: process.env.CA_CERT_BASE64 ? { rejectUnauthorized: true, ca: process.env.CA_CERT_BASE64 } : process.env.DATABASE_URL?.includes('ondigitalocean.com') ? { rejectUnauthorized: false } : false
       })
       result.poolCreated = true
       
