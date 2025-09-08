@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
     try {
       pool = new Pool({
         connectionString: process.env.DATABASE_URL,
-        ssl: process.env.DATABASE_URL?.includes('localhost') ? false : { rejectUnauthorized: false }
+        ssl: process.env.DATABASE_URL?.includes('localhost') ? false : { rejectUnauthorized: false, require: true }
       })
       result.poolCreated = true
       
