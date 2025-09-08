@@ -39,6 +39,7 @@ export async function GET(request: NextRequest) {
     // Step 3: Try to create Pool
     let pool: Pool | null = null
     try {
+      console.log('EXACT DATABASE_URL:', process.env.DATABASE_URL);
       pool = new Pool({
         connectionString: process.env.DATABASE_URL,
         ssl: process.env.DATABASE_URL?.includes('localhost') ? false : { rejectUnauthorized: false, require: true }
@@ -78,6 +79,7 @@ export async function GET(request: NextRequest) {
     success: true,
     timestamp: new Date().toISOString(),
     version: deploymentVersion,
-    results: result
+    results: result,
+    fullUrl: process.env.DATABASE_URL ? 'exists-length-' + process.env.DATABASE_URL.length : 'missing'
   })
 }
