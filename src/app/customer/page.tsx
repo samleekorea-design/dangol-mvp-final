@@ -306,6 +306,14 @@ export default function CustomerPage() {
       if (data.success) {
         // Save claimed deal to localStorage
         saveClaimedDeal(dealId, data.claimCode)
+        // Update the deals array to mark the specific deal as claimed
+        setDeals(prevDeals => 
+          prevDeals.map(d => 
+            d.id === dealId 
+              ? {...d, claimed: true, claimCode: data.claimCode} 
+              : d
+          )
+        )
         // Refresh deals to update current_claims and claimed status
         if (location) {
           fetchDeals(location.lat, location.lng, radius)

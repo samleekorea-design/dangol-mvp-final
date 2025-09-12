@@ -19,9 +19,14 @@ export default function MerchantScanPage() {
   const [scanResult, setScanResult] = useState<ScanResult | null>(null)
   const [manualCode, setManualCode] = useState('')
   const [cameraStarted, setCameraStarted] = useState(false)
+  const [isMerchantLoggedIn, setIsMerchantLoggedIn] = useState(false)
   const resetTimeoutRef = useRef<NodeJS.Timeout>()
 
   useEffect(() => {
+    // Check if merchant is logged in
+    const merchantId = localStorage.getItem('merchantId')
+    setIsMerchantLoggedIn(!!merchantId)
+    
     startCamera()
     
     return () => {
@@ -144,7 +149,13 @@ export default function MerchantScanPage() {
       <div className="text-white p-6">
         <div className="flex items-center justify-between mb-4">
           <button
-            onClick={() => router.push('/')}
+            onClick={() => {
+              if (isMerchantLoggedIn) {
+                router.push('/merchant/dashboard')
+              } else {
+                router.push('/')
+              }
+            }}
             className="flex items-center gap-2 text-white/90 hover:text-white transition-colors"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
