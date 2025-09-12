@@ -2,6 +2,9 @@ import { Pool, PoolClient } from 'pg';
 import bcrypt from 'bcrypt';
 import { v4 as uuidv4 } from 'uuid';
 
+// Global singleton pool instance to prevent connection exhaustion
+let globalPool: Pool | null = null;
+
 export interface Merchant {
   id: number;
   business_name: string;
@@ -101,6 +104,12 @@ class DangolDB {
 
   private initializeDatabase(): Pool {
     try {
+      // Check if global pool already exists to prevent multiple instances
+      if (globalPool) {
+        console.log('🔄 Reusing existing database pool');
+        return globalPool;
+      }
+
       // Parse DATABASE_URL or use environment variables
       const databaseUrl = process.env.DATABASE_URL;
       
@@ -108,7 +117,10 @@ class DangolDB {
 if (databaseUrl) {
         poolConfig = {
           connectionString: databaseUrl,
-          ssl: { rejectUnauthorized: false }  // Changed this line
+          ssl: { rejectUnauthorized: false },
+          max: 10,                          // Maximum pool size
+          connectionTimeoutMillis: 30000,   // Connection timeout (30 seconds)
+          idleTimeoutMillis: 10000          // Idle timeout (10 seconds)
         };
       } else {
         const host = process.env.POSTGRES_HOST || 'localhost';
@@ -118,16 +130,21 @@ if (databaseUrl) {
           database: process.env.POSTGRES_DB || 'dangol_v2',
           password: process.env.POSTGRES_PASSWORD || 'password',
           port: parseInt(process.env.POSTGRES_PORT || '5432'),
-          ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+          ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+          max: 10,                          // Maximum pool size
+          connectionTimeoutMillis: 30000,   // Connection timeout (30 seconds)
+          idleTimeoutMillis: 10000          // Idle timeout (10 seconds)
         };
       }
 
       const pool = new Pool(poolConfig);
+      globalPool = pool;
       this.pool = pool;
       this.pool.on('error', (err) => { console.error('Unexpected pool error:', err); });
       this.pool.connect().then(() => console.log('Database connected successfully')).catch(err => console.error('Database connection failed:', err));
       
-      console.log('🗄️  PostgreSQL pool initialized');
+      console.log('🗄️  PostgreSQL pool initialized with connection management');
+      console.log(`📊 Pool config: max=${poolConfig.max}, connectionTimeout=${poolConfig.connectionTimeoutMillis}ms, idleTimeout=${poolConfig.idleTimeoutMillis}ms`);
       
       // Create tables on initialization
       this.createTables();
@@ -968,6 +985,7 @@ if (databaseUrl) {
   // Connection cleanup
   async close(): Promise<void> {
     await this.pool.end();
+    globalPool = null; // Reset global pool reference
   }
 }
 

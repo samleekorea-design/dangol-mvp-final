@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { QrCode } from 'lucide-react'
 import { getKoreanTime, formatKoreanTime, isDealExpired } from '@/lib/timezoneUtils'
 
 interface Deal {
@@ -14,6 +16,7 @@ interface Deal {
 }
 
 export default function MerchantDashboard() {
+  const router = useRouter()
   const [deals, setDeals] = useState<Deal[]>([])
   const [merchantId, setMerchantId] = useState<number | null>(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -259,6 +262,13 @@ export default function MerchantDashboard() {
             className="w-full bg-white text-blue-600 font-light py-3 px-4 rounded-lg hover:bg-white/90 focus:outline-none focus:ring-2 focus:ring-blue-300/50 transition-all duration-300"
           >
             {showForm ? '취소' : '새 행사 만들기'}
+          </button>
+          <button
+            onClick={() => router.push('/merchant/scan')}
+            className="w-full bg-white border-2 border-purple-600 text-purple-600 font-light py-3 px-4 rounded-lg hover:bg-purple-50 focus:outline-none focus:ring-2 focus:ring-purple-300/50 transition-all duration-300 flex items-center justify-center gap-2"
+          >
+            <QrCode className="w-4 h-4" />
+            QR 스캔하기
           </button>
         </div>
 

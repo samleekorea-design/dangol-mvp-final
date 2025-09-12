@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
 import { RefreshCw } from 'lucide-react'
 import { deviceFingerprint } from '@/lib/deviceFingerprint'
 import { getKoreanTime, formatKoreanTime, isDealExpired } from '@/lib/timezoneUtils'
@@ -26,10 +25,9 @@ interface Deal {
 
 export default function CustomerPage() {
   console.log('🚀🚀🚀 CustomerPage MOUNTING')
-  const router = useRouter()
   const [deals, setDeals] = useState<Deal[]>([])
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null)
-  const [radius, setRadius] = useState(1000)
+  const [radius, setRadius] = useState(200)
   const [isLoading, setIsLoading] = useState(false)
   const [errors, setErrors] = useState<string[]>([])
   const [deviceId, setDeviceId] = useState<string>('')
@@ -329,51 +327,6 @@ export default function CustomerPage() {
     return formatKoreanTime(date)
   }
 
-  const formatKoreanDateTime = (dateString: string) => {
-    let expiryDate: Date
-    
-    // Handle different date formats from the database
-    if (dateString.includes('T') || dateString.includes('Z')) {
-      expiryDate = new Date(dateString)
-    } else {
-      expiryDate = new Date(dateString + ' UTC')
-    }
-    
-    if (isNaN(expiryDate.getTime())) {
-      expiryDate = new Date(dateString)
-    }
-    
-    if (isNaN(expiryDate.getTime())) {
-      return '만료: 알 수 없음'
-    }
-    
-    const now = new Date()
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-    const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000)
-    const dayAfterTomorrow = new Date(today.getTime() + 2 * 24 * 60 * 60 * 1000)
-    const expiryDay = new Date(expiryDate.getFullYear(), expiryDate.getMonth(), expiryDate.getDate())
-    
-    let dateText = ''
-    if (expiryDay.getTime() === today.getTime()) {
-      dateText = '오늘'
-    } else if (expiryDay.getTime() === tomorrow.getTime()) {
-      dateText = '내일'
-    } else if (expiryDay.getTime() === dayAfterTomorrow.getTime()) {
-      dateText = '모레'
-    } else {
-      dateText = `${expiryDate.getMonth() + 1}월 ${expiryDate.getDate()}일`
-    }
-    
-    // Format time in 12-hour Korean format
-    const hours = expiryDate.getHours()
-    const minutes = expiryDate.getMinutes()
-    const period = hours < 12 ? '오전' : '오후'
-    const displayHours = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours
-    const displayMinutes = minutes.toString().padStart(2, '0')
-    
-    return `만료: ${dateText} ${period} ${displayHours}:${displayMinutes}`
-  }
-
   const getTimeRemaining = (expires_at: string) => {
     const now = new Date()
     
@@ -405,37 +358,16 @@ export default function CustomerPage() {
       return { text: '만료됨', isUrgent: false }
     }
     
-    const totalMinutes = Math.floor(timeDiff / (1000 * 60))
-    const totalHours = Math.floor(totalMinutes / 60)
-    const totalDays = Math.floor(totalHours / 24)
+    const minutes = Math.floor(timeDiff / (1000 * 60))
+    const hours = Math.floor(minutes / 60)
+    const days = Math.floor(hours / 24)
     
-    const remainingHours = totalHours % 24
-    const remainingMinutes = totalMinutes % 60
-    
-    // Less than 1 minute
-    if (totalMinutes < 1) {
-      return { text: '곧 만료', isUrgent: true }
-    }
-    
-    // Less than 1 hour: show minutes only
-    if (totalHours < 1) {
-      return { text: `${totalMinutes}분 남음`, isUrgent: totalMinutes < 30 }
-    }
-    
-    // Less than 24 hours: show hours and minutes
-    if (totalDays < 1) {
-      if (remainingMinutes === 0) {
-        return { text: `${totalHours}시간 남음`, isUrgent: totalMinutes < 30 }
-      } else {
-        return { text: `${totalHours}시간 ${remainingMinutes}분 남음`, isUrgent: totalMinutes < 30 }
-      }
-    }
-    
-    // More than 24 hours: show days and hours
-    if (remainingHours === 0) {
-      return { text: `${totalDays}일 남음`, isUrgent: false }
+    if (days > 0) {
+      return { text: `${days}일 남음`, isUrgent: false }
+    } else if (hours > 0) {
+      return { text: `${hours}시간 남음`, isUrgent: false }
     } else {
-      return { text: `${totalDays}일 ${remainingHours}시간 남음`, isUrgent: false }
+      return { text: `${minutes}분 남음`, isUrgent: minutes < 30 }
     }
   }
 
@@ -453,62 +385,8 @@ export default function CustomerPage() {
     return new Date(claimExpiry + 'Z') <= new Date()
   }
 
-  const detectiOS = () => {
-    if (typeof navigator === 'undefined') return false
-    return /iPad|iPhone|iPod/.test(navigator.userAgent)
-  }
-
-  const openMapLink = (address: string) => {
-    const encodedAddress = encodeURIComponent(address)
-    const webUrl = `https://maps.google.com/?q=${encodedAddress}`
-    
-    if (detectiOS()) {
-      // Try Google Maps app first on iOS
-      const googleMapsUrl = `comgooglemaps://?q=${encodedAddress}`
-      
-      // Create a temporary link to test if Google Maps app is available
-      const tempLink = document.createElement('a')
-      tempLink.href = googleMapsUrl
-      
-      // Try to open Google Maps app
-      try {
-        window.location.href = googleMapsUrl
-        // Set a timeout to fallback to web if app doesn't open
-        setTimeout(() => {
-          window.open(webUrl, '_blank', 'noopener,noreferrer')
-        }, 500)
-      } catch (error) {
-        // Fallback to web version
-        window.open(webUrl, '_blank', 'noopener,noreferrer')
-      }
-    } else {
-      // For Android and desktop, use web version
-      window.open(webUrl, '_blank', 'noopener,noreferrer')
-    }
-  }
-
-  const copyToClipboard = async (text: string) => {
-    try {
-      await navigator.clipboard.writeText(text)
-      // You could add a toast notification here if desired
-    } catch (error) {
-      // Fallback for older browsers
-      const textArea = document.createElement('textarea')
-      textArea.value = text
-      document.body.appendChild(textArea)
-      textArea.focus()
-      textArea.select()
-      try {
-        document.execCommand('copy')
-      } catch (err) {
-        console.error('Failed to copy text: ', err)
-      }
-      document.body.removeChild(textArea)
-    }
-  }
-
   return (
-    <div className="min-h-screen bg-[radial-gradient(ellipse_at_top_left,_#65BBFF_0%,_#3A82FF_25%,_#2570EA_50%,_#1857C7_100%)]">
+    <div className="min-h-screen bg-gradient-to-br from-[#65BBFF] via-10% via-[#3A82FF] via-25% to-[#1E6AFF]">
       
       <div className="max-w-[375px] mx-auto px-6 py-8">
         {/* Logo - Top Left */}
@@ -525,35 +403,35 @@ export default function CustomerPage() {
         {/* Header */}
         <div className="text-center mb-8 w-full">
           <div className="mb-2">
-            <h1 className="text-4xl font-light text-white">동네 혜택 찾기</h1>
+            <h1 className="text-3xl font-light text-white">동네 혜택 찾기</h1>
           </div>
-          <p className="text-base text-white/80">내 주변의 특별한 혜택을 찾아보세요</p>
+          <p className="text-sm text-white/80">내 주변의 특별한 혜택을 찾아보세요</p>
         </div>
 
         {/* Location & Controls */}
         <div className="bg-white/10 backdrop-blur-sm p-4 rounded-lg border border-white/20 mb-6 w-full">
           <div className="mb-4">
-            <p className="text-base text-white/80 mb-2">
+            <p className="text-sm text-white/80 mb-2">
               {location ? `위치: ${location.lat.toFixed(4)}, ${location.lng.toFixed(4)}` : '위치 가져오는 중...'}
             </p>
             <button
               onClick={requestLocation}
-              className="text-white hover:text-white/80 text-base font-light underline transition-colors duration-300 py-2"
+              className="text-white hover:text-white/80 text-sm font-light underline transition-colors duration-300"
             >
               위치 업데이트
             </button>
           </div>
 
           <div>
-            <label className="block text-base font-light text-white mb-2">
+            <label className="block text-sm font-light text-white mb-2">
               검색 반경: {radius}m
             </label>
-            <div className="grid grid-cols-3 gap-2">
-              {[200, 500, 1000].map((r) => (
+            <div className="flex gap-2 flex-wrap">
+              {[100, 200, 500, 1000].map((r) => (
                 <button
                   key={r}
                   onClick={() => handleRadiusChange(r)}
-                  className={`w-full px-4 py-3 rounded-lg text-base font-light transition-all duration-300 min-h-[48px] flex items-center justify-center ${
+                  className={`px-3 py-2 rounded-lg text-sm font-light transition-all duration-300 ${
                     radius === r
                       ? 'bg-white text-blue-600'
                       : 'bg-white/20 text-white hover:bg-white/30'
@@ -571,7 +449,7 @@ export default function CustomerPage() {
           <button
             onClick={() => location && fetchDeals(location.lat, location.lng, radius)}
             disabled={!location || isLoading}
-            className={`w-full px-6 py-4 rounded-lg text-lg font-light transition-all duration-300 flex items-center justify-center gap-2 min-h-[48px] ${
+            className={`w-full px-4 py-3 rounded-lg text-sm font-light transition-all duration-300 flex items-center justify-center gap-2 ${
               location && !isLoading
                 ? 'bg-blue-100/50 text-white hover:bg-white/30 active:scale-95'
                 : 'bg-blue-100/20 text-white/50 cursor-not-allowed'
@@ -586,7 +464,7 @@ export default function CustomerPage() {
         {errors.length > 0 && (
           <div className="bg-red-500/20 backdrop-blur-sm border border-red-400/30 rounded-lg p-3 mb-4 w-full">
             {errors.map((error, index) => (
-              <p key={index} className="text-red-100 text-base">{error}</p>
+              <p key={index} className="text-red-100 text-sm">{error}</p>
             ))}
           </div>
         )}
@@ -603,8 +481,8 @@ export default function CustomerPage() {
         <div className="w-full">
           {!isLoading && deals.length === 0 && (
             <div className="text-center py-8 text-white/80">
-              <p className="text-xl mb-2 font-light">찾은 혜택이 없습니다</p>
-              <p className="text-base">검색 반경을 늘리거나 나중에 다시 확인해 보세요</p>
+              <p className="text-lg mb-2 font-light">찾은 혜택이 없습니다</p>
+              <p className="text-sm">검색 반경을 늘리거나 나중에 다시 확인해 보세요</p>
             </div>
           )}
 
@@ -626,51 +504,46 @@ export default function CustomerPage() {
                       </svg>
                     </div>
                     <div className="flex-1">
-                      <h3 className="text-xl font-medium text-gray-900 mb-1">
+                      <h3 className="text-lg font-medium text-gray-900 mb-1">
                         {deal.title}
                       </h3>
-                      <p className="text-base text-gray-600 mb-2 line-clamp-3">{deal.description}</p>
+                      <p className="text-gray-600 mb-2">{deal.description}</p>
                     </div>
                   </div>
                   
-                  <div className="text-base text-gray-500 space-y-1 pl-13">
+                  <div className="text-sm text-gray-500 space-y-1 pl-13">
                     <div className="flex items-center gap-2">
                       <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-4m-5 0H3m2 0h2M7 16h6M7 8h6v4H7V8z" />
                       </svg>
-                      <p className="font-medium text-base text-gray-700">{deal.merchant_name}</p>
+                      <p className="font-medium text-gray-700">{deal.merchant_name}</p>
                     </div>
                     <div className="flex items-center gap-2">
                       <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                       </svg>
-                      <button 
-                        onClick={() => openMapLink(deal.merchant_address)}
-                        className="text-blue-600 hover:text-blue-800 hover:underline transition-colors duration-200 flex items-center gap-1 text-left"
-                      >
-                        {deal.merchant_address}
-                        <svg className="w-3 h-3 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                        </svg>
-                      </button>
+                      <p>{deal.merchant_address}</p>
                     </div>
                     <div className="flex items-center gap-2">
                       <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                       </svg>
-                      <p>남은 수량: {deal.max_claims - deal.current_claims} / {deal.max_claims}</p>
+                      <p>사용: {deal.current_claims} / {deal.max_claims}</p>
                     </div>
-                    <div className="flex items-start gap-2">
-                      <svg className="w-4 h-4 text-gray-400 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="flex items-center gap-2">
+                      <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
-                      <div>
-                        <p>{formatKoreanDateTime(deal.expires_at)}</p>
-                        <p className={`font-medium ${getTimeRemaining(deal.expires_at).isUrgent ? 'text-red-600' : 'text-gray-700'}`}>
-                          {getTimeRemaining(deal.expires_at).text}
-                        </p>
-                      </div>
+                      <p>만료: {formatDate(deal.expires_at)}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <p className={`font-medium ${getTimeRemaining(deal.expires_at).isUrgent ? 'text-red-600' : 'text-gray-700'}`}>
+                        {getTimeRemaining(deal.expires_at).text}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -678,27 +551,27 @@ export default function CustomerPage() {
                 <div className="flex justify-between items-center pt-4 border-t border-gray-100">
                   <div>
                     {deal.claimed && !isClaimExpired(deal.claimExpiry) && (
-                      <span className="inline-flex items-center px-3 py-2 rounded-full text-sm font-medium bg-purple-100 text-purple-700 border border-purple-200">
+                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-700 border border-purple-200">
                         받은 혜택
                       </span>
                     )}
                     {deal.claimed && isClaimExpired(deal.claimExpiry) && (
-                      <span className="inline-flex items-center px-3 py-2 rounded-full text-sm font-medium bg-gray-100 text-gray-600 border border-gray-200">
+                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600 border border-gray-200">
                         코드 만료
                       </span>
                     )}
                     {!deal.claimed && isExpired(deal) && (
-                      <span className="inline-flex items-center px-3 py-2 rounded-full text-sm font-medium bg-red-100 text-red-700 border border-red-200">
+                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700 border border-red-200">
                         만료
                       </span>
                     )}
                     {!deal.claimed && deal.current_claims >= deal.max_claims && !isExpired(deal) && (
-                      <span className="inline-flex items-center px-3 py-2 rounded-full text-sm font-medium bg-yellow-100 text-yellow-700 border border-yellow-200">
+                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700 border border-yellow-200">
                         마감
                       </span>
                     )}
                     {!deal.claimed && isClaimAvailable(deal) && (
-                      <span className="inline-flex items-center px-3 py-2 rounded-full text-sm font-medium bg-green-100 text-green-700 border border-green-200">
+                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700 border border-green-200">
                         사용가능
                       </span>
                     )}
@@ -706,24 +579,15 @@ export default function CustomerPage() {
 
                   {deal.claimed ? (
                     <div className="text-right">
-                      {isClaimExpired(deal.claimExpiry) && (
-                        <div className="text-sm font-medium text-red-600 mb-2">
-                          코드 만료
-                        </div>
-                      )}
-                      <button
-                        onClick={() => router.push(`/customer/redeem?dealId=${deal.id}&code=${claimedDeals[deal.id]?.code}&merchant=${encodeURIComponent(deal.merchant_name)}`)}
-                        className="bg-purple-600 hover:bg-purple-700 text-white font-medium px-6 py-3 rounded-lg text-lg transition-colors duration-200"
-                        disabled={isClaimExpired(deal.claimExpiry)}
-                      >
-                        혜택 코드 보기
-                      </button>
+                      <div className="text-sm font-medium text-purple-700 mb-1">
+                        코드: {isClaimExpired(deal.claimExpiry) ? '코드 만료' : deal.claimCode}
+                      </div>
                     </div>
                   ) : (
                     <button
                       onClick={() => claimDeal(deal.id)}
                       disabled={!isClaimAvailable(deal) || deal.claimed}
-                      className={`px-6 py-4 rounded-lg text-lg font-medium transition-all duration-300 min-h-[48px] ${
+                      className={`px-6 py-2 rounded-lg text-sm font-medium transition-all duration-300 ${
                         isClaimAvailable(deal) && !deal.claimed
                           ? 'bg-blue-600 text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 shadow-sm'
                           : 'bg-gray-100 text-gray-400 cursor-not-allowed'
