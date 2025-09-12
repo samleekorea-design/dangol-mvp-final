@@ -74,8 +74,10 @@ export default function MerchantScanPage() {
   }
 
   const stopCamera = () => {
-    if (readerRef.current && typeof readerRef.current.reset === 'function') {
-      readerRef.current.reset()
+    if (readerRef.current && typeof readerRef.current.stopContinuousDecode === 'function') {
+      readerRef.current.stopContinuousDecode()
+    } else if (readerRef.current && typeof readerRef.current.stop === 'function') {
+      readerRef.current.stop()
     }
     setCameraStarted(false)
   }
