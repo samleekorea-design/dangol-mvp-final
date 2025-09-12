@@ -105,10 +105,10 @@ class DangolDB {
       const databaseUrl = process.env.DATABASE_URL;
       
       let poolConfig;
-      if (databaseUrl) {
+if (databaseUrl) {
         poolConfig = {
           connectionString: databaseUrl,
-          ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+          ssl: { rejectUnauthorized: false }  // Changed this line
         };
       } else {
         const host = process.env.POSTGRES_HOST || 'localhost';

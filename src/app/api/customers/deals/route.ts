@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/database';
 
 export async function GET(request: NextRequest) {
+  if (process.env.NODE_ENV === 'development') {
+    console.log('Development mode - checking database connection');
+  }
+  
   try {
     const { searchParams } = new URL(request.url);
     const lat = parseFloat(searchParams.get('lat') || '37.5665');
