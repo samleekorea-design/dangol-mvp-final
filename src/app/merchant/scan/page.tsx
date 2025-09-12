@@ -74,7 +74,7 @@ export default function MerchantScanPage() {
   }
 
   const stopCamera = () => {
-    if (readerRef.current) {
+    if (readerRef.current && typeof readerRef.current.reset === 'function') {
       readerRef.current.reset()
     }
     setCameraStarted(false)
@@ -150,6 +150,9 @@ export default function MerchantScanPage() {
         <div className="flex items-center justify-between mb-4">
           <button
             onClick={() => {
+              // Clean up camera before navigation
+              stopCamera()
+              // Use back navigation for better UX
               if (isMerchantLoggedIn) {
                 router.push('/merchant/dashboard')
               } else {
