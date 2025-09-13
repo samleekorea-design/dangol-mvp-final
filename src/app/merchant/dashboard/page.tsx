@@ -29,8 +29,12 @@ export default function MerchantDashboard() {
   const [formData, setFormData] = useState({
     title: '',
     description: '',
+    startTimeOption: '지금 시작', // '지금 시작', '30분 후', '1시간 후', '특정 시간 선택'
+    customStartTime: '',
+    endTimeOption: 'duration', // 'duration' or 'specific'
     hours: '',
     minutes: '',
+    customEndTime: '',
     maxClaims: ''
   })
 
@@ -76,26 +80,79 @@ export default function MerchantDashboard() {
     }
   }
 
+  // Helper to format datetime-local value
+  const formatDateTimeLocal = (date: Date) => {
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    const hours = String(date.getHours()).padStart(2, '0')
+    const minutes = String(date.getMinutes()).padStart(2, '0')
+    return `${year}-${month}-${day}T${hours}:${minutes}`
+  }
+
+  // Helper to get minimum datetime (current time)
+  const getMinDateTime = () => {
+    return formatDateTimeLocal(new Date())
+  }
+
+  const calculateStartTime = () => {
+    const now = new Date()
+    
+    switch (formData.startTimeOption) {
+      case '지금 시작':
+        return now
+      case '30분 후':
+        return new Date(now.getTime() + 30 * 60 * 1000)
+      case '1시간 후':
+        return new Date(now.getTime() + 60 * 60 * 1000)
+      case '특정 시간 선택':
+        return new Date(formData.customStartTime)
+      default:
+        return now
+    }
+  }
+
+  const calculateEndTime = (startTime: Date) => {
+    if (formData.endTimeOption === 'specific') {
+      return new Date(formData.customEndTime)
+    } else {
+      const hours = formData.hours === '' ? 0 : Number(formData.hours)
+      const minutes = formData.minutes === '' ? 0 : Number(formData.minutes)
+      return new Date(startTime.getTime() + (hours * 60 + minutes) * 60 * 1000)
+    }
+  }
+
   const validateForm = () => {
     const newErrors: string[] = []
     
-    if (!formData.title.trim()) newErrors.push('Deal title is required')
-    if (!formData.description.trim()) newErrors.push('Deal description is required')
+    if (!formData.title.trim()) newErrors.push('혜택 제목을 입력해주세요')
+    if (!formData.description.trim()) newErrors.push('설명을 입력해주세요')
     
-    const hours = formData.hours === '' ? 0 : Number(formData.hours)
-    const minutes = formData.minutes === '' ? 0 : Number(formData.minutes)
+    // Validate start time
+    if (formData.startTimeOption === '특정 시간 선택' && !formData.customStartTime) {
+      newErrors.push('시작 시간을 선택해주세요')
+    }
     
-    if (hours < 0 || hours > 23) {
-      newErrors.push('Hours must be between 0 and 23')
+    // Validate end time
+    if (formData.endTimeOption === 'duration') {
+      const hours = formData.hours === '' ? 0 : Number(formData.hours)
+      const minutes = formData.minutes === '' ? 0 : Number(formData.minutes)
+      
+      if (hours < 0 || hours > 23) {
+        newErrors.push('시간은 0-23 사이여야 합니다')
+      }
+      if (minutes < 0 || minutes > 59) {
+        newErrors.push('분은 0-59 사이여야 합니다')
+      }
+      if (hours === 0 && minutes === 0) {
+        newErrors.push('최소 1분 이상의 유효 시간이 필요합니다')
+      }
+    } else if (formData.endTimeOption === 'specific' && !formData.customEndTime) {
+      newErrors.push('종료 시간을 선택해주세요')
     }
-    if (minutes < 0 || minutes > 59) {
-      newErrors.push('Minutes must be between 0 and 59')
-    }
-    if (hours === 0 && minutes === 0) {
-      newErrors.push('Deal must have at least 1 minute validity')
-    }
+    
     if (!formData.maxClaims || Number(formData.maxClaims) < 1) {
-      newErrors.push('Max claims must be at least 1')
+      newErrors.push('최대 사용자 수는 1명 이상이어야 합니다')
     }
     
     return newErrors
@@ -115,6 +172,9 @@ export default function MerchantDashboard() {
     setIsLoading(true)
 
     try {
+      const startTime = calculateStartTime()
+      const endTime = calculateEndTime(startTime)
+      
       const response = await fetch('/api/merchants/deals', {
         method: 'POST',
         headers: {
@@ -124,8 +184,8 @@ export default function MerchantDashboard() {
           merchantId: merchantId!,
           title: formData.title,
           description: formData.description,
-          hours: formData.hours === '' ? 0 : Number(formData.hours),
-          minutes: formData.minutes === '' ? 0 : Number(formData.minutes),
+          starts_at: startTime.toISOString(),
+          expires_at: endTime.toISOString(),
           maxClaims: Number(formData.maxClaims)
         }),
       })
@@ -137,8 +197,12 @@ export default function MerchantDashboard() {
         setFormData({
           title: '',
           description: '',
+          startTimeOption: '지금 시작',
+          customStartTime: '',
+          endTimeOption: 'duration',
           hours: '',
           minutes: '',
+          customEndTime: '',
           maxClaims: ''
         })
         setShowForm(false)
@@ -312,8 +376,73 @@ export default function MerchantDashboard() {
 
               <div>
                 <label className="block text-sm font-light text-white mb-2">
-                  유효 시간 *
+                  시작 시간 *
                 </label>
+                <div className="grid grid-cols-2 gap-2 mb-4">
+                  {['지금 시작', '30분 후', '1시간 후', '특정 시간 선택'].map((option) => (
+                    <button
+                      key={option}
+                      type="button"
+                      onClick={() => setFormData({...formData, startTimeOption: option})}
+                      className={`px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 ${
+                        formData.startTimeOption === option
+                          ? 'bg-white text-blue-600'
+                          : 'bg-white/10 text-white border border-white/20 hover:bg-white/20'
+                      }`}
+                    >
+                      {option}
+                    </button>
+                  ))}
+                </div>
+                
+                {formData.startTimeOption === '특정 시간 선택' && (
+                  <div className="mb-4">
+                    <label htmlFor="customStartTime" className="block text-sm font-light text-white mb-2">
+                      시작 날짜 및 시간
+                    </label>
+                    <input
+                      type="datetime-local"
+                      id="customStartTime"
+                      name="customStartTime"
+                      value={formData.customStartTime}
+                      onChange={handleChange}
+                      className="w-full px-4 py-4 text-lg rounded-lg bg-white/10 backdrop-blur-sm border border-white/20 text-white focus:outline-none focus:ring-2 focus:ring-blue-300/50 focus:border-blue-300/60"
+                      min={getMinDateTime()}
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-light text-white mb-2">
+                  종료 시간 *
+                </label>
+                <div className="grid grid-cols-2 gap-2 mb-4">
+                  <button
+                    type="button"
+                    onClick={() => setFormData({...formData, endTimeOption: 'duration'})}
+                    className={`px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 ${
+                      formData.endTimeOption === 'duration'
+                        ? 'bg-white text-blue-600'
+                        : 'bg-white/10 text-white border border-white/20 hover:bg-white/20'
+                    }`}
+                  >
+                    유효 기간
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFormData({...formData, endTimeOption: 'specific'})}
+                    className={`px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 ${
+                      formData.endTimeOption === 'specific'
+                        ? 'bg-white text-blue-600'
+                        : 'bg-white/10 text-white border border-white/20 hover:bg-white/20'
+                    }`}
+                  >
+                    특정 시간까지
+                  </button>
+                </div>
+                
+                {formData.endTimeOption === 'duration' && (
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label htmlFor="hours" className="block text-xs font-light text-white/80 mb-1">
@@ -348,6 +477,24 @@ export default function MerchantDashboard() {
                     />
                   </div>
                 </div>
+                )}
+                
+                {formData.endTimeOption === 'specific' && (
+                  <div>
+                    <label htmlFor="customEndTime" className="block text-sm font-light text-white mb-2">
+                      종료 날짜 및 시간
+                    </label>
+                    <input
+                      type="datetime-local"
+                      id="customEndTime"
+                      name="customEndTime"
+                      value={formData.customEndTime}
+                      onChange={handleChange}
+                      className="w-full px-4 py-4 text-lg rounded-lg bg-white/10 backdrop-blur-sm border border-white/20 text-white focus:outline-none focus:ring-2 focus:ring-blue-300/50 focus:border-blue-300/60"
+                      min={getMinDateTime()}
+                    />
+                  </div>
+                )}
               </div>
 
               <div>

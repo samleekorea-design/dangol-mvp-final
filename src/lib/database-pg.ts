@@ -22,6 +22,7 @@ export interface Deal {
   merchant_id: number;
   title: string;
   description: string;
+  starts_at?: string;
   expires_at: string;
   max_claims: number;
   current_claims: number;
@@ -131,7 +132,7 @@ if (databaseUrl) {
           database: process.env.POSTGRES_DB || 'dangol_v2',
           password: process.env.POSTGRES_PASSWORD || 'password',
           port: parseInt(process.env.POSTGRES_PORT || '5432'),
-          ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+          ssl: { rejectUnauthorized: false },
           max: 10,                          // Maximum pool size
           connectionTimeoutMillis: 30000,   // Connection timeout (30 seconds)
           idleTimeoutMillis: 10000          // Idle timeout (10 seconds)
@@ -334,6 +335,43 @@ if (databaseUrl) {
   }
 
   // DEAL OPERATIONS
+  async createDealWithTimes(merchantId: number, title: string, description: string, startsAt: Date, expiresAt: Date, maxClaims: number = 999): Promise<Deal | null> {
+    try {
+      console.log(`🕐 Creating deal with scheduled times:`, {
+        startsAt: startsAt.toISOString(),
+        expiresAt: expiresAt.toISOString()
+      });
+      
+      const client = await this.pool.connect();
+      
+      try {
+        const result = await client.query(`
+          INSERT INTO deals (merchant_id, title, description, starts_at, expires_at, max_claims, created_at)
+          VALUES ($1, $2, $3, $4, $5, $6, $7)
+          RETURNING id
+        `, [merchantId, title, description, startsAt, expiresAt, maxClaims, new Date()]);
+        
+        if (result.rows.length > 0) {
+          const dealWithMerchant = await client.query(`
+            SELECT d.*, m.business_name as merchant_name, m.address as merchant_address
+            FROM deals d 
+            JOIN merchants m ON d.merchant_id = m.id 
+            WHERE d.id = $1
+          `, [result.rows[0].id]);
+          
+          return dealWithMerchant.rows[0];
+        }
+        
+        return null;
+      } finally {
+        client.release();
+      }
+    } catch (error) {
+      console.error('Create deal with times error:', error);
+      return null;
+    }
+  }
+
   async createDeal(merchantId: number, title: string, description: string, hours: number, minutes: number, maxClaims: number = 999): Promise<Deal | null> {
     try {
       const utcNow = new Date();
