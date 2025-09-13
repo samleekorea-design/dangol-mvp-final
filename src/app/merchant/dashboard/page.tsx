@@ -37,6 +37,10 @@ export default function MerchantDashboard() {
     customEndTime: '',
     maxClaims: ''
   })
+  
+  const [editingQuantity, setEditingQuantity] = useState<{[dealId: number]: string}>({})
+  const [actionMessages, setActionMessages] = useState<{[dealId: number]: {type: 'success' | 'error', text: string}}>({})
+  const [loadingActions, setLoadingActions] = useState<{[dealId: number]: boolean}>({})
 
   useEffect(() => {
     // Check for merchant session/authentication
@@ -222,6 +226,128 @@ export default function MerchantDashboard() {
       ...formData,
       [e.target.name]: e.target.value
     })
+  }
+
+  const clearActionMessage = (dealId: number) => {
+    setActionMessages(prev => {
+      const newMessages = { ...prev }
+      delete newMessages[dealId]
+      return newMessages
+    })
+  }
+
+  const handleConfirmDeal = async (dealId: number) => {
+    if (!merchantId) return
+
+    setLoadingActions(prev => ({ ...prev, [dealId]: true }))
+    clearActionMessage(dealId)
+
+    try {
+      const response = await fetch(`/api/merchants/deals/${dealId}/confirm`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ merchantId }),
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        setActionMessages(prev => ({ 
+          ...prev, 
+          [dealId]: { type: 'success', text: '혜택이 성공적으로 확정되었습니다' }
+        }))
+        // Update local deal state
+        setDeals(prevDeals => 
+          prevDeals.map(deal => 
+            deal.id === dealId 
+              ? { ...deal, status: 'confirmed' as const }
+              : deal
+          )
+        )
+        // Clear message after 3 seconds
+        setTimeout(() => clearActionMessage(dealId), 3000)
+      } else {
+        setActionMessages(prev => ({ 
+          ...prev, 
+          [dealId]: { type: 'error', text: data.error || '혜택 확정에 실패했습니다' }
+        }))
+      }
+    } catch (error) {
+      setActionMessages(prev => ({ 
+        ...prev, 
+        [dealId]: { type: 'error', text: '네트워크 오류가 발생했습니다' }
+      }))
+    } finally {
+      setLoadingActions(prev => ({ ...prev, [dealId]: false }))
+    }
+  }
+
+  const handleUpdateQuantity = async (dealId: number, newQuantity: string) => {
+    if (!merchantId) return
+
+    const quantity = parseInt(newQuantity)
+    if (isNaN(quantity) || quantity < 0) {
+      setActionMessages(prev => ({ 
+        ...prev, 
+        [dealId]: { type: 'error', text: '유효한 수량을 입력해주세요' }
+      }))
+      return
+    }
+
+    setLoadingActions(prev => ({ ...prev, [dealId]: true }))
+    clearActionMessage(dealId)
+
+    try {
+      const response = await fetch(`/api/merchants/deals/${dealId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          merchantId,
+          maxClaims: quantity
+        }),
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        setActionMessages(prev => ({ 
+          ...prev, 
+          [dealId]: { type: 'success', text: '수량이 성공적으로 업데이트되었습니다' }
+        }))
+        // Update local deal state
+        setDeals(prevDeals => 
+          prevDeals.map(deal => 
+            deal.id === dealId 
+              ? { ...deal, max_claims: quantity }
+              : deal
+          )
+        )
+        // Clear editing state
+        setEditingQuantity(prev => {
+          const newState = { ...prev }
+          delete newState[dealId]
+          return newState
+        })
+        // Clear message after 3 seconds
+        setTimeout(() => clearActionMessage(dealId), 3000)
+      } else {
+        setActionMessages(prev => ({ 
+          ...prev, 
+          [dealId]: { type: 'error', text: data.error || '수량 업데이트에 실패했습니다' }
+        }))
+      }
+    } catch (error) {
+      setActionMessages(prev => ({ 
+        ...prev, 
+        [dealId]: { type: 'error', text: '네트워크 오류가 발생했습니다' }
+      }))
+    } finally {
+      setLoadingActions(prev => ({ ...prev, [dealId]: false }))
+    }
   }
 
 
@@ -562,13 +688,22 @@ export default function MerchantDashboard() {
             <div className="divide-y divide-white/20">
               {activeDealsList.map((deal) => (
                 <div key={deal.id} className="px-6 py-4">
-                  <div className="flex justify-between items-start">
+                  <div className="flex justify-between items-start mb-3">
                     <div className="flex-1">
                       <h3 className="text-lg font-light text-white mb-1">
                         {deal.title}
                         <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-500/30 text-green-200">
                           활성
                         </span>
+                        {deal.status === 'draft' ? (
+                          <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-500/30 text-yellow-200">
+                            임시저장
+                          </span>
+                        ) : (
+                          <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-500/30 text-blue-200">
+                            확정
+                          </span>
+                        )}
                       </h3>
                       <p className="text-white/80 mb-2">{deal.description}</p>
                       <div className="text-sm text-white/60">
@@ -583,6 +718,101 @@ export default function MerchantDashboard() {
                       </div>
                     </div>
                   </div>
+                  
+                  {/* Action messages */}
+                  {actionMessages[deal.id] && (
+                    <div className={`p-3 rounded-lg mb-3 ${
+                      actionMessages[deal.id].type === 'success' 
+                        ? 'bg-green-500/10 border border-green-500/20' 
+                        : 'bg-red-500/10 border border-red-500/20'
+                    }`}>
+                      <p className={`text-sm ${
+                        actionMessages[deal.id].type === 'success' 
+                          ? 'text-green-200' 
+                          : 'text-red-200'
+                      }`}>
+                        {actionMessages[deal.id].text}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Status-specific messages and actions */}
+                  {deal.status === 'draft' && (
+                    <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-3 mb-3">
+                      <p className="text-xs text-yellow-200 mb-2">
+                        확인 후에는 수량만 변경 가능합니다. 정보에 오류가 있는 경우 남은 수량을 0으로 변경하여 이벤트를 취소하시고 새로 작성하시기 바랍니다.
+                      </p>
+                      <button 
+                        onClick={() => handleConfirmDeal(deal.id)}
+                        disabled={loadingActions[deal.id]}
+                        className="bg-yellow-600 hover:bg-yellow-700 disabled:bg-yellow-600/50 text-white font-medium px-4 py-2 rounded-lg text-sm transition-colors duration-200 flex items-center gap-2"
+                      >
+                        {loadingActions[deal.id] && (
+                          <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                        )}
+                        {loadingActions[deal.id] ? '처리 중...' : '확인하기'}
+                      </button>
+                    </div>
+                  )}
+                  
+                  {deal.status === 'confirmed' && (
+                    <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
+                      {editingQuantity[deal.id] !== undefined ? (
+                        <div className="space-y-3">
+                          <div>
+                            <label className="block text-sm font-medium text-blue-200 mb-1">
+                              최대 사용자 수 (현재: {deal.current_claims}명 사용됨)
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              value={editingQuantity[deal.id]}
+                              onChange={(e) => setEditingQuantity(prev => ({ ...prev, [deal.id]: e.target.value }))}
+                              className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-blue-300/50"
+                              placeholder="수량을 입력하세요 (0=취소)"
+                            />
+                          </div>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => handleUpdateQuantity(deal.id, editingQuantity[deal.id])}
+                              disabled={loadingActions[deal.id]}
+                              className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-600/50 text-white font-medium px-4 py-2 rounded-lg text-sm transition-colors duration-200 flex items-center gap-2"
+                            >
+                              {loadingActions[deal.id] && (
+                                <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                              )}
+                              {loadingActions[deal.id] ? '저장 중...' : '저장'}
+                            </button>
+                            <button
+                              onClick={() => setEditingQuantity(prev => {
+                                const newState = { ...prev }
+                                delete newState[deal.id]
+                                return newState
+                              })}
+                              className="bg-gray-600 hover:bg-gray-700 text-white font-medium px-4 py-2 rounded-lg text-sm transition-colors duration-200"
+                            >
+                              취소
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex justify-end">
+                          <button 
+                            onClick={() => setEditingQuantity(prev => ({ ...prev, [deal.id]: deal.max_claims.toString() }))}
+                            className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-lg text-sm transition-colors duration-200"
+                          >
+                            수정 (수량만)
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -626,6 +856,15 @@ export default function MerchantDashboard() {
                           <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-500/30 text-gray-300">
                             만료
                           </span>
+                          {deal.status === 'draft' ? (
+                            <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-500/30 text-yellow-200">
+                              임시저장
+                            </span>
+                          ) : (
+                            <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-500/30 text-blue-200">
+                              확정
+                            </span>
+                          )}
                         </h3>
                         <p className="text-white/80 mb-2">{deal.description}</p>
                         <div className="text-sm text-white/60">

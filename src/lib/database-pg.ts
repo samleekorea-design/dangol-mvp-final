@@ -27,6 +27,7 @@ export interface Deal {
   max_claims: number;
   current_claims: number;
   created_at: string;
+  status: 'draft' | 'confirmed';
   merchant_name?: string;
   merchant_address?: string;
 }
@@ -335,6 +336,84 @@ if (databaseUrl) {
   }
 
   // DEAL OPERATIONS
+  async updateDeal(dealId: number, updateData: any): Promise<Deal | null> {
+    try {
+      const client = await this.pool.connect();
+      
+      try {
+        // Build dynamic UPDATE query
+        const fields = Object.keys(updateData);
+        const values = Object.values(updateData);
+        
+        if (fields.length === 0) {
+          return null;
+        }
+        
+        const setClause = fields.map((field, index) => `${field} = $${index + 1}`).join(', ');
+        const query = `
+          UPDATE deals SET ${setClause}
+          WHERE id = $${fields.length + 1}
+          RETURNING *
+        `;
+        
+        const result = await client.query(query, [...values, dealId]);
+        
+        if (result.rows.length === 0) {
+          return null; // Deal not found
+        }
+        
+        // Get deal with merchant information
+        const dealWithMerchant = await client.query(`
+          SELECT d.*, m.business_name as merchant_name, m.address as merchant_address
+          FROM deals d 
+          JOIN merchants m ON d.merchant_id = m.id 
+          WHERE d.id = $1
+        `, [dealId]);
+        
+        return dealWithMerchant.rows[0] || null;
+      } finally {
+        client.release();
+      }
+    } catch (error) {
+      console.error('Update deal error:', error);
+      return null;
+    }
+  }
+
+  async confirmDeal(dealId: number): Promise<Deal | null> {
+    try {
+      const client = await this.pool.connect();
+      
+      try {
+        // Update deal status to confirmed
+        const result = await client.query(`
+          UPDATE deals SET status = 'confirmed' 
+          WHERE id = $1 AND status = 'draft'
+          RETURNING *
+        `, [dealId]);
+        
+        if (result.rows.length === 0) {
+          return null; // Deal not found or not in draft status
+        }
+        
+        // Get deal with merchant information
+        const dealWithMerchant = await client.query(`
+          SELECT d.*, m.business_name as merchant_name, m.address as merchant_address
+          FROM deals d 
+          JOIN merchants m ON d.merchant_id = m.id 
+          WHERE d.id = $1
+        `, [dealId]);
+        
+        return dealWithMerchant.rows[0] || null;
+      } finally {
+        client.release();
+      }
+    } catch (error) {
+      console.error('Confirm deal error:', error);
+      return null;
+    }
+  }
+
   async createDealWithTimes(merchantId: number, title: string, description: string, startsAt: Date, expiresAt: Date, maxClaims: number = 999): Promise<Deal | null> {
     try {
       console.log(`🕐 Creating deal with scheduled times:`, {
@@ -346,10 +425,10 @@ if (databaseUrl) {
       
       try {
         const result = await client.query(`
-          INSERT INTO deals (merchant_id, title, description, starts_at, expires_at, max_claims, created_at)
-          VALUES ($1, $2, $3, $4, $5, $6, $7)
+          INSERT INTO deals (merchant_id, title, description, starts_at, expires_at, max_claims, created_at, status)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
           RETURNING id
-        `, [merchantId, title, description, startsAt, expiresAt, maxClaims, new Date()]);
+        `, [merchantId, title, description, startsAt, expiresAt, maxClaims, new Date(), 'draft']);
         
         if (result.rows.length > 0) {
           const dealWithMerchant = await client.query(`
@@ -390,10 +469,10 @@ if (databaseUrl) {
       
       try {
         const result = await client.query(`
-          INSERT INTO deals (merchant_id, title, description, expires_at, max_claims, created_at)
-          VALUES ($1, $2, $3, $4, $5, $6)
+          INSERT INTO deals (merchant_id, title, description, expires_at, max_claims, created_at, status)
+          VALUES ($1, $2, $3, $4, $5, $6, $7)
           RETURNING id
-        `, [merchantId, title, description, expiresAt, maxClaims, utcNow]);
+        `, [merchantId, title, description, expiresAt, maxClaims, utcNow, 'draft']);
 
         const dealId = result.rows[0].id;
         return await this.getDeal(dealId);
