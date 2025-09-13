@@ -455,7 +455,6 @@ if (databaseUrl) {
           FROM deals d 
           JOIN merchants m ON d.merchant_id = m.id 
           WHERE d.expires_at > NOW()
-          AND d.current_claims < d.max_claims
           AND m.latitude BETWEEN $1 AND $2
           AND m.longitude BETWEEN $3 AND $4
         `, [

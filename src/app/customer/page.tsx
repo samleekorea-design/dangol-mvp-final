@@ -617,11 +617,18 @@ export default function CustomerPage() {
           )}
 
           <div className="space-y-4">
-            {deals.map((deal) => (
-              <div key={deal.id} className={`bg-white rounded-xl border border-gray-200 p-6 shadow-sm relative ${deal.claimed ? 'opacity-70' : ''}`}>
+            {deals.map((deal) => {
+              const isSoldOut = deal.current_claims >= deal.max_claims && !deal.claimed
+              return (
+                <div key={deal.id} className={`bg-white rounded-xl border border-gray-200 p-6 shadow-sm relative ${deal.claimed ? 'opacity-70' : ''} ${isSoldOut ? 'opacity-60' : ''}`}>
                 {deal.claimed && (
                   <div className="absolute top-3 right-3 bg-green-500 text-white text-xs font-medium px-2 py-1 rounded-full z-10">
                     받음
+                  </div>
+                )}
+                {isSoldOut && (
+                  <div className="absolute top-3 right-3 bg-red-500 text-white text-xs font-medium px-2 py-1 rounded-full z-10">
+                    완판
                   </div>
                 )}
                 <div className="mb-4">
@@ -701,8 +708,8 @@ export default function CustomerPage() {
                       </span>
                     )}
                     {!deal.claimed && deal.current_claims >= deal.max_claims && !isExpired(deal) && (
-                      <span className="inline-flex items-center px-3 py-2 rounded-full text-sm font-medium bg-yellow-100 text-yellow-700 border border-yellow-200">
-                        마감
+                      <span className="inline-flex items-center px-3 py-2 rounded-full text-sm font-medium bg-red-100 text-red-700 border border-red-200">
+                        완판
                       </span>
                     )}
                     {!deal.claimed && isClaimAvailable(deal) && (
@@ -737,12 +744,13 @@ export default function CustomerPage() {
                           : 'bg-gray-100 text-gray-400 cursor-not-allowed'
                       }`}
                     >
-                      {deal.claimed ? '이미 받음' : isClaimAvailable(deal) ? '혜택 받기' : '사용불가'}
+                      {deal.claimed ? '이미 받음' : isClaimAvailable(deal) ? '혜택 받기' : isSoldOut ? '완판' : '사용불가'}
                     </button>
                   )}
                 </div>
               </div>
-            ))}
+              )
+            })}
           </div>
         </div>
       </div>
