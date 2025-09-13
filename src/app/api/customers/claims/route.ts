@@ -12,7 +12,18 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    const claimCode = await db.claimDeal(dealId, deviceId);
+    // Extract User-Agent header to determine device type
+    const userAgent = request.headers.get('user-agent') || '';
+    
+    // Determine device type based on User-Agent
+    let deviceType = 'Unknown';
+    if (userAgent.includes('iPhone') || userAgent.includes('iPad') || userAgent.includes('iPod')) {
+      deviceType = 'iOS';
+    } else if (userAgent.includes('Android')) {
+      deviceType = 'Android';
+    }
+    
+    const claimCode = await db.claimDeal(dealId, deviceId, deviceType);
     
     if (!claimCode) {
       return NextResponse.json(

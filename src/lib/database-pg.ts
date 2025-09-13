@@ -38,6 +38,7 @@ export interface Claim {
   claimed_at: string;
   expires_at: string;
   redeemed_at?: string;
+  device_type?: string;
 }
 
 export interface PushSubscription {
@@ -473,7 +474,7 @@ if (databaseUrl) {
   }
 
   // CLAIM OPERATIONS
-  async claimDeal(dealId: number, deviceId: string): Promise<string | null> {
+  async claimDeal(dealId: number, deviceId: string, deviceType: string = 'Unknown'): Promise<string | null> {
     try {
       const client = await this.pool.connect();
       
@@ -501,7 +502,7 @@ if (databaseUrl) {
         const claimCode = Math.random().toString(36).substr(2, 6).toUpperCase();
         const expirationDate = new Date(Date.now() + 30 * 60 * 1000);
 
-        await client.query('INSERT INTO claims (deal_id, device_id, claim_code, expires_at) VALUES ($1, $2, $3, $4)', [dealId, deviceId, claimCode, expirationDate]);
+        await client.query('INSERT INTO claims (deal_id, device_id, claim_code, expires_at, device_type) VALUES ($1, $2, $3, $4, $5)', [dealId, deviceId, claimCode, expirationDate, deviceType]);
         await client.query('UPDATE deals SET current_claims = current_claims + 1 WHERE id = $1', [dealId]);
 
         await client.query('COMMIT');
