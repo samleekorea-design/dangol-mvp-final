@@ -52,6 +52,7 @@ export default function MerchantLogin() {
         setMessage('Login successful!')
         // Store merchant data in localStorage for session management
         localStorage.setItem('merchant', JSON.stringify(data.merchant))
+        localStorage.setItem('merchantId', data.merchant.id.toString())
         setFormData({
           email: '',
           password: ''
