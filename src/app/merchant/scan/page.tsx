@@ -23,9 +23,11 @@ export default function MerchantScanPage() {
   const resetTimeoutRef = useRef<NodeJS.Timeout>()
 
   useEffect(() => {
-    // Check if merchant is logged in
-    const merchantId = localStorage.getItem('merchantId')
-    setIsMerchantLoggedIn(!!merchantId)
+    // Check if merchant is logged in (client-side only)
+    if (typeof window !== 'undefined') {
+      const merchantId = localStorage.getItem('merchantId')
+      setIsMerchantLoggedIn(!!merchantId)
+    }
     
     startCamera()
     
