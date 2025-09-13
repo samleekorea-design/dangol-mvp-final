@@ -409,6 +409,9 @@ export default function MerchantDashboard() {
                       className="w-full px-4 py-4 text-lg rounded-lg bg-white/10 backdrop-blur-sm border border-white/20 text-white focus:outline-none focus:ring-2 focus:ring-blue-300/50 focus:border-blue-300/60"
                       min={getMinDateTime()}
                     />
+                    {!formData.customStartTime && (
+                      <p className="text-xs text-white/70 mt-2">여기를 눌러 시간을 선택하세요</p>
+                    )}
                   </div>
                 )}
               </div>
@@ -493,6 +496,9 @@ export default function MerchantDashboard() {
                       className="w-full px-4 py-4 text-lg rounded-lg bg-white/10 backdrop-blur-sm border border-white/20 text-white focus:outline-none focus:ring-2 focus:ring-blue-300/50 focus:border-blue-300/60"
                       min={getMinDateTime()}
                     />
+                    {!formData.customEndTime && (
+                      <p className="text-xs text-white/70 mt-2">여기를 눌러 시간을 선택하세요</p>
+                    )}
                   </div>
                 )}
               </div>
