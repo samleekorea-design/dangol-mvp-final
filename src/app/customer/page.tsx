@@ -554,10 +554,10 @@ export default function CustomerPage() {
 
           <div>
             <label className="block text-base font-light text-white mb-2">
-              검색 반경: {radius}m
+              검색 반경: {radius >= 9999 ? '전체' : `${radius}m`}
             </label>
             <div className="grid grid-cols-3 gap-2">
-              {[200, 500, 1000].map((r) => (
+              {[200, 500, 9999].map((r) => (
                 <button
                   key={r}
                   onClick={() => handleRadiusChange(r)}
@@ -567,10 +567,20 @@ export default function CustomerPage() {
                       : 'bg-white/20 text-white hover:bg-white/30'
                   }`}
                 >
-                  {r}m
+                  {r >= 9999 ? '1000m+' : `${r}m`}
                 </button>
               ))}
             </div>
+          </div>
+          
+          {/* Archive Button */}
+          <div className="text-center mt-4">
+            <a
+              href="/archive"
+              className="inline-block bg-purple-600 hover:bg-purple-700 text-white font-light py-2 px-6 rounded-lg transition-colors duration-300 text-sm"
+            >
+              🔥 최근에 놓친 혜택 확인하기
+            </a>
           </div>
         </div>
 
@@ -655,20 +665,22 @@ export default function CustomerPage() {
                       </svg>
                       <p className="font-medium text-base text-gray-700">{deal.merchant_name}</p>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                      </svg>
-                      <button 
-                        onClick={() => openMapLink(deal.merchant_address)}
-                        className="text-blue-600 hover:text-blue-800 hover:underline transition-colors duration-200 flex items-center gap-1 text-left"
-                      >
-                        {deal.merchant_address}
-                        <svg className="w-3 h-3 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                         </svg>
-                      </button>
+                        <p className="text-gray-600">{deal.merchant_address}</p>
+                      </div>
+                      <div className="ml-6">
+                        <button 
+                          onClick={() => openMapLink(deal.merchant_address)}
+                          className="text-blue-400 text-sm underline hover:text-blue-500 transition-colors duration-200"
+                        >
+                          📍 지도에서 보기
+                        </button>
+                      </div>
                     </div>
                     <div className="flex items-center gap-2">
                       <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">

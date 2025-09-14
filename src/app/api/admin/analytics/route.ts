@@ -7,8 +7,10 @@ interface AdminAnalyticsData {
     totalDeals: number
     totalClaims: number
     totalRedemptions: number
+    totalCancellations: number
     activeDeals: number
     redemptionRate: number
+    cancellationRate: number
   }
   timeAnalytics: {
     hourlyData: Array<{ hour: number, claims: number, redemptions: number }>
@@ -110,19 +112,26 @@ async function getKPIs() {
     const totalClaims = claims.count
 
     // Get total redemptions
-    const redemptions = (await db.pool.query('SELECT COUNT(*) as count FROM claims WHERE redeemed_at IS NOT NULL')).rows[0] as { count: number }
+    const redemptions = (await db.pool.query("SELECT COUNT(*) as count FROM claims WHERE status = 'redeemed'")).rows[0] as { count: number }
     const totalRedemptions = redemptions.count
 
-    // Calculate redemption rate
+    // Get total cancellations
+    const cancellations = (await db.pool.query("SELECT COUNT(*) as count FROM claims WHERE status = 'cancelled'")).rows[0] as { count: number }
+    const totalCancellations = cancellations.count
+
+    // Calculate redemption and cancellation rates
     const redemptionRate = totalClaims > 0 ? totalRedemptions / totalClaims : 0
+    const cancellationRate = totalClaims > 0 ? totalCancellations / totalClaims : 0
 
     return {
       totalMerchants,
       totalDeals,
       totalClaims,
       totalRedemptions,
+      totalCancellations,
       activeDeals: activeDeals.count,
-      redemptionRate
+      redemptionRate,
+      cancellationRate
     }
   } catch (error) {
     console.error('Error calculating KPIs:', error)
@@ -131,8 +140,10 @@ async function getKPIs() {
       totalDeals: 0,
       totalClaims: 0,
       totalRedemptions: 0,
+      totalCancellations: 0,
       activeDeals: 0,
-      redemptionRate: 0
+      redemptionRate: 0,
+      cancellationRate: 0
     }
   }
 }

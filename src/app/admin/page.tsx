@@ -17,8 +17,10 @@ interface AdminData {
     totalDeals: number
     totalClaims: number
     totalRedemptions: number
+    totalCancellations: number
     activeDeals: number
     redemptionRate: number
+    cancellationRate: number
   }
   timeAnalytics: {
     hourlyData: Array<{ hour: number, claims: number, redemptions: number }>
@@ -51,11 +53,25 @@ interface AdminData {
 }
 
 export default function AdminDashboard() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [adminPassword, setAdminPassword] = useState('')
+  const [authError, setAuthError] = useState('')
   const [data, setData] = useState<AdminData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const [autoRefresh, setAutoRefresh] = useState(true)
+
+  const handleAdminAuth = (e: React.FormEvent) => {
+    e.preventDefault()
+    setAuthError('')
+    
+    if (adminPassword === '@glatic') {
+      setIsAuthenticated(true)
+    } else {
+      setAuthError('올바르지 않은 관리자 비밀번호입니다')
+    }
+  }
 
   const fetchData = async (showRefreshing = false) => {
     if (showRefreshing) setRefreshing(true)
@@ -78,22 +94,80 @@ export default function AdminDashboard() {
   }
 
   useEffect(() => {
-    fetchData()
-  }, [])
+    if (isAuthenticated) {
+      fetchData()
+    }
+  }, [isAuthenticated])
 
   // Auto-refresh every 30 seconds
   useEffect(() => {
-    if (!autoRefresh) return
+    if (!autoRefresh || !isAuthenticated) return
 
     const interval = setInterval(() => {
       fetchData(true)
     }, 30000)
 
     return () => clearInterval(interval)
-  }, [autoRefresh])
+  }, [autoRefresh, isAuthenticated])
 
   const handleManualRefresh = () => {
     fetchData(true)
+  }
+
+  // Admin password prompt
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-[#65BBFF] via-10% via-[#3A82FF] via-25% to-[#1E6AFF] flex items-center justify-center">
+        <div className="max-w-[375px] mx-auto px-6 py-8">
+          {/* Logo */}
+          <div className="flex justify-center mb-8 w-full">
+            <a href="/">
+              <img 
+                src="/images/logo-white.png" 
+                alt="Dangol Logo" 
+                className="h-8 w-auto opacity-90"
+              />
+            </a>
+          </div>
+          
+          {/* Title */}
+          <div className="text-center mb-8 w-full">
+            <h1 className="text-3xl font-light text-white mb-2">관리자 대시보드</h1>
+            <p className="text-sm text-white/80">관리자 비밀번호를 입력하세요</p>
+          </div>
+          
+          <form onSubmit={handleAdminAuth} className="space-y-6 bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20 w-full">
+            <div>
+              <label htmlFor="adminPassword" className="block text-sm font-light text-white mb-2">
+                관리자 비밀번호 *
+              </label>
+              <input
+                type="password"
+                id="adminPassword"
+                value={adminPassword}
+                onChange={(e) => setAdminPassword(e.target.value)}
+                className="w-full px-4 py-3 rounded-lg bg-white/10 backdrop-blur-sm border border-white/20 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-blue-300/50 focus:border-blue-300/60"
+                placeholder="관리자 비밀번호를 입력하세요"
+                required
+              />
+            </div>
+
+            {authError && (
+              <div className="bg-red-500/20 backdrop-blur-sm border border-red-400/30 rounded-lg p-3">
+                <p className="text-red-100 text-sm">{authError}</p>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              className="w-full bg-white text-blue-600 font-light py-3 px-4 rounded-lg hover:bg-white/90 focus:outline-none focus:ring-2 focus:ring-blue-300/50 transition-all duration-300"
+            >
+              인증하기
+            </button>
+          </form>
+        </div>
+      </div>
+    )
   }
 
   if (isLoading) {

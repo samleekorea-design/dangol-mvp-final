@@ -154,13 +154,23 @@ export default function MerchantLogin() {
           </button>
         </form>
 
-        <div className="mt-6 mb-8 text-center w-full">
-          <p className="text-sm text-white/80">
-            계정이 없으신가요?{' '}
-            <a href="/merchant/register" className="text-white hover:text-white/80 underline transition-colors duration-300">
-              회원가입하기
+        <div className="mt-6 mb-8 text-center w-full space-y-3">
+          <a
+            href="http://pf.kakao.com/_xbZWkn/chat"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-block w-full bg-[#FEE500] text-black font-medium py-3 px-4 rounded-lg hover:bg-[#FEE500]/90 focus:outline-none focus:ring-2 focus:ring-yellow-300/50 transition-all duration-300"
+          >
+            도움이 필요하신가요? 고객 지원
+          </a>
+          <div>
+            <a
+              href="/merchant/register-admin"
+              className="text-blue-300 text-sm opacity-70 hover:opacity-100 transition-opacity duration-300"
+            >
+              관리자
             </a>
-          </p>
+          </div>
         </div>
       </div>
     </div>

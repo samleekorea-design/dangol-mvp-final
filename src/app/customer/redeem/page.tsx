@@ -3,6 +3,7 @@
 import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import QRCode from 'qrcode'
+import { deviceFingerprint } from '@/lib/deviceFingerprint'
 
 function RedeemPage() {
   const searchParams = useSearchParams()
@@ -14,9 +15,31 @@ function RedeemPage() {
   
   const [qrCodeUrl, setQrCodeUrl] = useState<string>('')
   const [isLoading, setIsLoading] = useState(true)
+  const [claimId, setClaimId] = useState<number | null>(null)
+  const [deviceId, setDeviceId] = useState<string>('')
+  const [isCancelling, setIsCancelling] = useState(false)
+  const [error, setError] = useState('')
   
+  // Initialize device ID
   useEffect(() => {
-    const generateQRCode = async () => {
+    const initializeDeviceId = async () => {
+      try {
+        const id = await deviceFingerprint.getDeviceId().catch(() => {
+          return 'device_' + Math.random().toString(36).substr(2, 9)
+        })
+        setDeviceId(id)
+      } catch (error) {
+        console.error('Failed to initialize device ID:', error)
+        const fallbackId = 'device-' + Math.random().toString(36).substr(2, 9)
+        setDeviceId(fallbackId)
+      }
+    }
+    initializeDeviceId()
+  }, [])
+
+  // Fetch claim details and generate QR code
+  useEffect(() => {
+    const initializePage = async () => {
       if (code) {
         try {
           // Generate QR code with high error correction for better scanning
@@ -32,16 +55,68 @@ function RedeemPage() {
             width: 300
           })
           setQrCodeUrl(url)
+
+          // Fetch claim details to get claim ID
+          const response = await fetch(`/api/claims/by-code/${code}`)
+          if (response.ok) {
+            const data = await response.json()
+            if (data.success) {
+              setClaimId(data.claim.id)
+            }
+          }
         } catch (error) {
-          console.error('Failed to generate QR code:', error)
+          console.error('Failed to initialize page:', error)
         } finally {
           setIsLoading(false)
         }
       }
     }
     
-    generateQRCode()
+    initializePage()
   }, [code])
+
+  const handleCancelClaim = async () => {
+    if (!claimId || !deviceId) {
+      setError('혜택 취소 정보가 없습니다')
+      return
+    }
+
+    setIsCancelling(true)
+    setError('')
+
+    try {
+      const response = await fetch(`/api/claims/${claimId}/cancel`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ deviceId }),
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        // Remove from localStorage
+        const savedClaims = localStorage.getItem('claimedDeals')
+        if (savedClaims) {
+          const claims = JSON.parse(savedClaims)
+          if (dealId && claims[dealId]) {
+            delete claims[dealId]
+            localStorage.setItem('claimedDeals', JSON.stringify(claims))
+          }
+        }
+        
+        // Redirect back to customer page with success message
+        router.push('/customer?cancelled=true')
+      } else {
+        setError(data.error || '혜택 취소에 실패했습니다')
+      }
+    } catch (error) {
+      setError('네트워크 오류가 발생했습니다')
+    } finally {
+      setIsCancelling(false)
+    }
+  }
   
   if (!code || !merchant) {
     return (
@@ -113,11 +188,29 @@ function RedeemPage() {
         </div>
         
         {/* Instructions */}
-        <div className="max-w-sm text-center">
+        <div className="max-w-sm text-center mb-6">
           <p className="text-sm text-white/80">
             위의 QR 코드나 숫자 코드를 매장 직원에게 보여주시면 혜택을 받으실 수 있습니다.
           </p>
         </div>
+
+        {/* Error Message */}
+        {error && (
+          <div className="bg-red-500/20 backdrop-blur-sm border border-red-400/30 rounded-lg p-3 mb-4 max-w-sm w-full">
+            <p className="text-red-100 text-sm text-center">{error}</p>
+          </div>
+        )}
+
+        {/* Cancel Button */}
+        {claimId && (
+          <button
+            onClick={handleCancelClaim}
+            disabled={isCancelling}
+            className="bg-red-500/80 hover:bg-red-500/90 disabled:bg-red-500/50 text-white font-medium py-3 px-6 rounded-xl text-sm transition-all duration-200 disabled:cursor-not-allowed"
+          >
+            {isCancelling ? '취소 중...' : '취소하기'}
+          </button>
+        )}
       </div>
       
       {/* Bottom Safe Area */}

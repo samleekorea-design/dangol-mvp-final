@@ -41,6 +41,8 @@ export interface Claim {
   expires_at: string;
   redeemed_at?: string;
   device_type?: string;
+  status: 'pending' | 'redeemed' | 'cancelled';
+  cancelled_at?: string;
 }
 
 export interface PushSubscription {
@@ -589,6 +591,56 @@ if (databaseUrl) {
     }
   }
 
+  async getArchivedDeals(): Promise<Deal[]> {
+    try {
+      const client = await this.pool.connect();
+      
+      try {
+        // Get deals expired within the last 3 days
+        const result = await client.query(`
+          SELECT d.*, m.business_name as merchant_name, m.address as merchant_address
+          FROM deals d 
+          JOIN merchants m ON d.merchant_id = m.id 
+          WHERE d.expires_at <= NOW()
+          AND d.expires_at >= NOW() - INTERVAL '3 days'
+          AND d.status = 'confirmed'
+          ORDER BY d.expires_at DESC
+        `);
+        
+        return result.rows;
+      } finally {
+        client.release();
+      }
+    } catch (error) {
+      console.error('Get archived deals error:', error);
+      return [];
+    }
+  }
+
+  async getAllActiveDeals(): Promise<Deal[]> {
+    try {
+      const client = await this.pool.connect();
+      
+      try {
+        const result = await client.query(`
+          SELECT d.*, m.business_name as merchant_name, m.address as merchant_address, m.latitude, m.longitude
+          FROM deals d 
+          JOIN merchants m ON d.merchant_id = m.id 
+          WHERE d.expires_at > NOW()
+          AND d.status = 'confirmed'
+          ORDER BY d.expires_at ASC
+        `);
+        
+        return result.rows;
+      } finally {
+        client.release();
+      }
+    } catch (error) {
+      console.error('Get all active deals error:', error);
+      return [];
+    }
+  }
+
   // CLAIM OPERATIONS
   async claimDeal(dealId: number, deviceId: string, deviceType: string = 'Unknown'): Promise<string | null> {
     try {
@@ -618,7 +670,7 @@ if (databaseUrl) {
         const claimCode = Math.random().toString(36).substr(2, 6).toUpperCase();
         const expirationDate = new Date(Date.now() + 30 * 60 * 1000);
 
-        await client.query('INSERT INTO claims (deal_id, device_id, claim_code, expires_at, device_type) VALUES ($1, $2, $3, $4, $5)', [dealId, deviceId, claimCode, expirationDate, deviceType]);
+        await client.query('INSERT INTO claims (deal_id, device_id, claim_code, expires_at, device_type, status) VALUES ($1, $2, $3, $4, $5, $6)', [dealId, deviceId, claimCode, expirationDate, deviceType, 'pending']);
         await client.query('UPDATE deals SET current_claims = current_claims + 1 WHERE id = $1', [dealId]);
 
         await client.query('COMMIT');
@@ -652,7 +704,7 @@ if (databaseUrl) {
           return false;
         }
 
-        await client.query("UPDATE claims SET redeemed_at = NOW() WHERE claim_code = $1", [claimCode]);
+        await client.query("UPDATE claims SET redeemed_at = NOW(), status = 'redeemed' WHERE claim_code = $1", [claimCode]);
         return true;
       } finally {
         client.release();
@@ -660,6 +712,73 @@ if (databaseUrl) {
     } catch (error) {
       console.error('Redeem claim error:', error);
       return false;
+    }
+  }
+
+  async cancelClaim(claimId: number, deviceId: string): Promise<boolean> {
+    try {
+      const client = await this.pool.connect();
+      
+      try {
+        await client.query('BEGIN');
+
+        // Get the claim and verify ownership
+        const claimResult = await client.query(
+          'SELECT c.*, d.id as deal_id FROM claims c JOIN deals d ON c.deal_id = d.id WHERE c.id = $1 AND c.device_id = $2 AND c.status = $3', 
+          [claimId, deviceId, 'pending']
+        );
+        const claim = claimResult.rows[0];
+        
+        if (!claim) {
+          await client.query('ROLLBACK');
+          return false;
+        }
+
+        // Check if claim is not already redeemed or cancelled
+        if (claim.redeemed_at || claim.status !== 'pending') {
+          await client.query('ROLLBACK');
+          return false;
+        }
+
+        // Cancel the claim
+        await client.query(
+          "UPDATE claims SET status = 'cancelled', cancelled_at = NOW() WHERE id = $1", 
+          [claimId]
+        );
+        
+        // Decrement deal current_claims count
+        await client.query(
+          'UPDATE deals SET current_claims = current_claims - 1 WHERE id = $1 AND current_claims > 0', 
+          [claim.deal_id]
+        );
+
+        await client.query('COMMIT');
+        return true;
+      } catch (error) {
+        await client.query('ROLLBACK');
+        throw error;
+      } finally {
+        client.release();
+      }
+    } catch (error) {
+      console.error('Cancel claim error:', error);
+      return false;
+    }
+  }
+
+  async getClaimByCode(claimCode: string): Promise<Claim | null> {
+    try {
+      const client = await this.pool.connect();
+      
+      try {
+        const result = await client.query('SELECT * FROM claims WHERE claim_code = $1', [claimCode]);
+        return result.rows[0] || null;
+      } finally {
+        client.release();
+      }
+    } catch (error) {
+      console.error('Get claim by code error:', error);
+      return null;
     }
   }
 
