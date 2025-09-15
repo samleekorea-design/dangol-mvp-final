@@ -792,6 +792,15 @@ function CustomerPageContent() {
             })}
           </div>
         </div>
+
+        {/* Footer */}
+        <div className="mt-8 pt-4 border-t border-white/20 text-center">
+          <div className="text-sm text-white/60">
+            <a href="/terms" className="hover:text-white/80">이용약관</a>
+            <span className="mx-2">|</span>
+            <a href="/privacy" className="hover:text-white/80">개인정보처리방침</a>
+          </div>
+        </div>
       </div>
 
     </div>
