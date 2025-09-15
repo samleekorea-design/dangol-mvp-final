@@ -661,7 +661,7 @@ if (databaseUrl) {
           return null;
         }
 
-        const existingClaim = await client.query('SELECT * FROM claims WHERE deal_id = $1 AND device_id = $2', [dealId, deviceId]);
+        const existingClaim = await client.query('SELECT * FROM claims WHERE deal_id = $1 AND device_id = $2 AND status != $3', [dealId, deviceId, 'cancelled']);
         if (existingClaim.rows.length > 0) {
           await client.query('ROLLBACK');
           return null;
