@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { RefreshCw } from 'lucide-react'
 import { deviceFingerprint } from '@/lib/deviceFingerprint'
 import { getKoreanTime, formatKoreanTime, isDealExpired } from '@/lib/timezoneUtils'
@@ -27,6 +27,7 @@ interface Deal {
 export default function CustomerPage() {
   console.log('🚀🚀🚀 CustomerPage MOUNTING')
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [deals, setDeals] = useState<Deal[]>([])
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null)
   const [radius, setRadius] = useState(1000)
@@ -61,6 +62,34 @@ export default function CustomerPage() {
       }
     }
   }, [])
+
+  // Handle cancelled query parameter - refresh localStorage when returning from cancellation
+  useEffect(() => {
+    const cancelled = searchParams.get('cancelled')
+    if (cancelled === 'true') {
+      // Re-read localStorage to refresh claimedDeals state after cancellation
+      const savedClaims = localStorage.getItem('claimedDeals')
+      if (savedClaims) {
+        const claims = JSON.parse(savedClaims)
+        // Filter out expired claims
+        const now = new Date()
+        const validClaims = Object.fromEntries(
+          Object.entries(claims).filter(([_, claim]: any) => new Date(claim.expiry) > now)
+        )
+        setClaimedDeals(validClaims)
+        if (Object.keys(validClaims).length !== Object.keys(claims).length) {
+          localStorage.setItem('claimedDeals', JSON.stringify(validClaims))
+        }
+      } else {
+        setClaimedDeals({})
+      }
+      
+      // Refresh deals list to update UI
+      if (location) {
+        fetchDeals(location.lat, location.lng, radius)
+      }
+    }
+  }, [searchParams, location, radius])
 
   // Save claimed deals to localStorage
   const saveClaimedDeal = (dealId: number, claimCode: string) => {

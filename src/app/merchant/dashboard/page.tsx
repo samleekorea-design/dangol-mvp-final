@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { QrCode } from 'lucide-react'
+import { QrCode, RefreshCw } from 'lucide-react'
 import { getKoreanTime, formatKoreanTime, isDealExpired } from '@/lib/timezoneUtils'
 
 interface Deal {
@@ -73,6 +73,7 @@ export default function MerchantDashboard() {
     const idToUse = currentMerchantId || merchantId
     if (!idToUse) return
 
+    setIsLoading(true)
     try {
       const response = await fetch(`/api/merchants/deals?merchantId=${idToUse}`)
       const data = await response.json()
@@ -81,6 +82,8 @@ export default function MerchantDashboard() {
       }
     } catch (error) {
       console.error('Failed to fetch deals:', error)
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -443,8 +446,14 @@ export default function MerchantDashboard() {
         <div className="mb-6 w-full space-y-3">
           <button
             onClick={() => fetchDeals()}
-            className="w-full bg-blue-500 text-white font-light py-3 px-4 rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-300/50 transition-all duration-300"
+            disabled={isLoading}
+            className={`w-full px-6 py-4 rounded-lg text-lg font-light transition-all duration-300 flex items-center justify-center gap-2 min-h-[48px] ${
+              !isLoading
+                ? 'bg-blue-100/50 text-white hover:bg-white/30 active:scale-95'
+                : 'bg-blue-100/20 text-white/50 cursor-not-allowed'
+            }`}
           >
+            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
             새로고침
           </button>
           <button
