@@ -63,7 +63,7 @@ export default function CustomerPage() {
     }
   }, [])
 
-  // Handle cancelled query parameter - refresh localStorage when returning from cancellation
+  // Handle cancelled query parameter - safe handler to prevent infinite loops
   useEffect(() => {
     const cancelled = searchParams.get('cancelled')
     if (cancelled === 'true') {
@@ -84,12 +84,10 @@ export default function CustomerPage() {
         setClaimedDeals({})
       }
       
-      // Refresh deals list to update UI
-      if (location) {
-        fetchDeals(location.lat, location.lng, radius)
-      }
+      // Immediately remove the query parameter to prevent infinite loops
+      router.replace('/customer')
     }
-  }, [searchParams, location, radius])
+  }, [searchParams])
 
   // Save claimed deals to localStorage
   const saveClaimedDeal = (dealId: number, claimCode: string) => {
