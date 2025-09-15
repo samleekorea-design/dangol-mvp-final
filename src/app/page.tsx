@@ -190,6 +190,15 @@ export default function Home() {
           </div>
         </div>
 
+        {/* Footer */}
+        <div className="-mt-16 pt-1 border-t border-white/20 text-center">
+          <div className="text-sm text-white/60">
+            <a href="/terms" className="hover:text-white/80">이용약관</a>
+            <span className="mx-2">|</span>
+            <a href="/privacy" className="hover:text-white/80">개인정보처리방침</a>
+          </div>
+        </div>
+
         <style jsx>{`
           @keyframes slideCards {
             0% {
