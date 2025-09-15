@@ -213,7 +213,7 @@ export default function InstallPage() {
             <div>
               <h3 className="text-white font-medium mb-2">주소창 오른쪽의 설치 아이콘을 클릭하세요</h3>
               <div className="flex items-center gap-2 mb-2">
-                <span className="text-2xl">⬇️</span>
+                <Image src="/icons/chrome-addressbarinstall-icon.png" alt="Chrome 설치 아이콘" width={32} height={32} className="rounded" />
                 <span className="text-white/80 text-sm">설치 아이콘</span>
               </div>
               <p className="text-white/80 text-sm">주소창 끝에 나타나는 설치 아이콘을 클릭하세요</p>
