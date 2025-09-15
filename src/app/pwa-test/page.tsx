@@ -41,7 +41,7 @@ export default function PWATest() {
         
         <div>
           <strong>Service Worker:</strong> {
-            'serviceWorker' in navigator ? '✅ Supported' : '❌ Not supported'
+            typeof window !== 'undefined' && 'serviceWorker' in navigator ? '✅ Supported' : '❌ Not supported'
           }
         </div>
 
