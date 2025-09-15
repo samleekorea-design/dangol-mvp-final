@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { RefreshCw } from 'lucide-react'
 import { deviceFingerprint } from '@/lib/deviceFingerprint'
@@ -24,7 +24,7 @@ interface Deal {
   claimExpiry?: string
 }
 
-export default function CustomerPage() {
+function CustomerPageContent() {
   console.log('🚀🚀🚀 CustomerPage MOUNTING')
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -85,7 +85,7 @@ export default function CustomerPage() {
       }
       
       // Immediately remove the query parameter to prevent infinite loops
-      router.replace('/customer')
+      window.history.replaceState({}, '', '/customer')
     }
   }, [searchParams])
 
@@ -795,5 +795,13 @@ export default function CustomerPage() {
       </div>
 
     </div>
+  )
+}
+
+export default function CustomerPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div>로딩 중...</div></div>}>
+      <CustomerPageContent />
+    </Suspense>
   )
 }
