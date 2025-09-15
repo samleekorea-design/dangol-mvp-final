@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 
 export default function InstallPage() {
   const router = useRouter()
@@ -68,7 +69,7 @@ export default function InstallPage() {
             <div>
               <h3 className="text-white font-medium mb-2">하단의 공유 버튼을 눌러주세요</h3>
               <div className="flex items-center gap-2 mb-2">
-                <span className="text-2xl">📤</span>
+                <Image src="/icons/safari-share-icon.png" alt="Safari 공유 버튼" width={32} height={32} className="rounded" />
                 <span className="text-white/80 text-sm">공유 아이콘</span>
               </div>
               <p className="text-white/80 text-sm">Safari 하단 중앙에 있는 공유 버튼입니다</p>
@@ -140,7 +141,7 @@ export default function InstallPage() {
             <div>
               <h3 className="text-white font-medium mb-2">우상단 메뉴 버튼을 눌러주세요</h3>
               <div className="flex items-center gap-2 mb-2">
-                <span className="text-2xl">⋮</span>
+                <Image src="/icons/chrome-threedotmenu-icon.png" alt="Chrome 메뉴 버튼" width={32} height={32} className="rounded" />
                 <span className="text-white/80 text-sm">메뉴 (점 3개)</span>
               </div>
               <p className="text-white/80 text-sm">Chrome 브라우저 우상단의 점 3개 메뉴입니다</p>
