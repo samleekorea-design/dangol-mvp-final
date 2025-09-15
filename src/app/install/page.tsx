@@ -34,6 +34,16 @@ export default function InstallPage() {
       // Desktop
       else {
         setDeviceType('desktop')
+        // Add browser detection for desktop
+        if (/safari/.test(userAgent) && !/chrome/.test(userAgent)) {
+          setBrowserType('safari')
+        } else if (/chrome/.test(userAgent)) {
+          setBrowserType('chrome')
+        } else if (/firefox/.test(userAgent)) {
+          setBrowserType('firefox')
+        } else {
+          setBrowserType('other')
+        }
       }
     }
 
@@ -184,61 +194,75 @@ export default function InstallPage() {
     </div>
   )
 
-  const DesktopInstructions = () => (
-    <div className="space-y-6">
-      <div className="text-center mb-8">
-        <div className="text-6xl mb-4">💻</div>
-        <h2 className="text-2xl font-light text-white mb-2">데스크톱 설치 안내</h2>
-        <p className="text-white/80 text-base">Chrome 브라우저에서 앱을 설치하세요</p>
-      </div>
-
-      <div className="space-y-4">
-        <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
-          <div className="flex items-start gap-4">
-            <div className="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
-              1
-            </div>
+  const DesktopInstructions = () => {
+    if (browserType === 'safari') {
+      return (
+        <>
+          <div className="flex items-center gap-4 mb-6">
+            <span className="text-4xl">💻</span>
             <div>
-              <h3 className="text-white font-medium mb-2">Chrome 브라우저에서 이 페이지를 열어주세요</h3>
-              <p className="text-white/80 text-sm">Chrome에서만 데스크톱 앱 설치가 가능합니다</p>
+              <h2 className="text-2xl font-bold text-white">데스크톱 설치 안내</h2>
+              <p className="text-white/80 mt-1">Safari는 PWA 설치를 지원하지 않습니다</p>
             </div>
           </div>
-        </div>
-
-        <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
-          <div className="flex items-start gap-4">
-            <div className="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
-              2
-            </div>
-            <div>
-              <h3 className="text-white font-medium mb-2">주소창 오른쪽의 설치 아이콘을 클릭하세요</h3>
-              <div className="flex items-center gap-2 mb-2">
-                <Image src="/icons/chrome-addressbarinstall-icon.png" alt="Chrome 설치 아이콘" width={32} height={32} className="rounded" />
-                <span className="text-white/80 text-sm">설치 아이콘</span>
+          <div className="space-y-4">
+            <div className="bg-white/10 backdrop-blur rounded-lg p-4">
+              <div className="flex items-start gap-4">
+                <div className="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                  1
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-white font-medium mb-2">Chrome 브라우저를 사용해주세요</h3>
+                  <p className="text-white/80 text-sm">데스크톱에서 PWA 설치는 Chrome, Edge, 또는 Brave 브라우저에서만 가능합니다</p>
+                </div>
               </div>
-              <p className="text-white/80 text-sm">주소창 끝에 나타나는 설치 아이콘을 클릭하세요</p>
             </div>
           </div>
+        </>
+      )
+    }
+    
+    // Original Chrome instructions
+    return (
+      <>
+        <div className="flex items-center gap-4 mb-6">
+          <span className="text-4xl">💻</span>
+          <div>
+            <h2 className="text-2xl font-bold text-white">데스크톱 설치 안내</h2>
+            <p className="text-white/80 mt-1">Chrome 브라우저에서 앱을 설치하세요</p>
+          </div>
         </div>
-
-        <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
-          <div className="flex items-start gap-4">
-            <div className="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
-              3
-            </div>
-            <div>
-              <h3 className="text-white font-medium mb-2">"설치" 버튼을 클릭하세요</h3>
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-2xl">✅</span>
-                <span className="text-white/80 text-sm">설치 완료</span>
+        <div className="space-y-4">
+          <div className="bg-white/10 backdrop-blur rounded-lg p-4">
+            <div className="flex items-start gap-4">
+              <div className="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                1
               </div>
-              <p className="text-white/80 text-sm">데스크톱에 단골 앱이 설치됩니다</p>
+              <div className="flex-1">
+                <h3 className="text-white font-medium mb-2">Chrome 브라우저에서 이 페이지를 열어주세요</h3>
+                <p className="text-white/80 text-sm">Chrome에서만 데스크톱 앱 설치가 가능합니다</p>
+              </div>
+            </div>
+          </div>
+          <div className="bg-white/10 backdrop-blur rounded-lg p-4">
+            <div className="flex items-start gap-4">
+              <div className="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                2
+              </div>
+              <div className="flex-1">
+                <h3 className="text-white font-medium mb-2">주소창 오른쪽의 설치 아이콘을 클릭하세요</h3>
+                <div className="flex items-center gap-2 mb-2">
+                  <Image src="/icons/chrome-addressbarinstall-icon.png" alt="Chrome 설치 아이콘" width={32} height={32} className="rounded" />
+                  <span className="text-white/80 text-sm">설치 아이콘</span>
+                </div>
+                <p className="text-white/80 text-sm">주소창 끝에 나타나는 설치 아이콘을 클릭하세요</p>
+              </div>
             </div>
           </div>
         </div>
-      </div>
-    </div>
-  )
+      </>
+    )
+  }
 
   const UnsupportedInstructions = () => (
     <div className="space-y-6">
