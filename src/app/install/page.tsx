@@ -51,75 +51,78 @@ export default function InstallPage() {
   }, [])
 
   const IOSInstructions = () => (
-    <div className="space-y-6">
-      <div className="text-center mb-8">
-        <div className="text-6xl mb-4">📱</div>
-        <h2 className="text-2xl font-light text-white mb-2">iOS 설치 안내</h2>
-        <p className="text-white/80 text-base">Safari 브라우저에서 홈 화면에 추가하세요</p>
+    <>
+      <div className="flex items-center gap-4 mb-6">
+        <span className="text-4xl">📱</span>
+        <div>
+          <h2 className="text-2xl font-bold text-white">iOS 설치 안내</h2>
+          <p className="text-white/80 mt-1">Safari에서 홈 화면에 추가하세요</p>
+        </div>
       </div>
-
       <div className="space-y-4">
-        <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
+        <div className="bg-white/10 backdrop-blur rounded-lg p-4">
           <div className="flex items-start gap-4">
-            <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+            <div className="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
               1
             </div>
-            <div>
-              <h3 className="text-white font-medium mb-2">Safari 브라우저에서 이 페이지를 열어주세요</h3>
-              <p className="text-white/80 text-sm">Chrome이나 다른 브라우저에서는 설치할 수 없습니다</p>
+            <div className="flex-1">
+              <h3 className="text-white font-medium mb-2">먼저 아래 단계를 모두 확인하세요</h3>
+              <p className="text-white/80 text-sm">공유 메뉴가 화면을 가리기 전에 전체 과정을 읽어주세요</p>
             </div>
           </div>
         </div>
-
-        <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
+        <div className="bg-white/10 backdrop-blur rounded-lg p-4">
           <div className="flex items-start gap-4">
-            <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+            <div className="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
               2
             </div>
-            <div>
-              <h3 className="text-white font-medium mb-2">하단의 공유 버튼을 눌러주세요</h3>
-              <div className="flex items-center gap-2 mb-2">
-                <Image src="/icons/safari-share-icon.png" alt="Safari 공유 버튼" width={32} height={32} className="rounded" />
-                <span className="text-white/80 text-sm">공유 아이콘</span>
+            <div className="flex-1">
+              <h3 className="text-white font-medium mb-4">공유 버튼을 누른 후 다음 단계를 따르세요</h3>
+              
+              <div className="space-y-3 ml-4">
+                <div className="flex items-start gap-3">
+                  <span className="text-purple-300 font-bold">2-1</span>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Image src="/icons/safari-share-icon.png" alt="Safari 공유 버튼" width={32} height={32} className="rounded" />
+                      <span className="text-white/80 text-sm">하단 중앙의 공유 버튼을 누르세요</span>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="flex items-start gap-3">
+                  <span className="text-purple-300 font-bold">2-2</span>
+                  <div className="flex-1">
+                    <p className="text-white/80 text-sm">공유 메뉴에서 아래로 스크롤하세요</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-start gap-3">
+                  <span className="text-purple-300 font-bold">2-3</span>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <Image src="/icons/safari-addtohomescreen-icon.png" alt="홈 화면에 추가" width={32} height={32} className="rounded" />
+                      <span className="text-white/80 text-sm">'홈 화면에 추가'를 선택하세요</span>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <p className="text-white/80 text-sm">Safari 하단 중앙에 있는 공유 버튼입니다</p>
             </div>
           </div>
         </div>
-
-        <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
+        <div className="bg-white/10 backdrop-blur rounded-lg p-4">
           <div className="flex items-start gap-4">
-            <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+            <div className="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
               3
             </div>
-            <div>
-              <h3 className="text-white font-medium mb-2">"홈 화면에 추가"를 선택하세요</h3>
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-2xl">➕</span>
-                <span className="text-white/80 text-sm">홈 화면에 추가</span>
-              </div>
-              <p className="text-white/80 text-sm">목록에서 "홈 화면에 추가" 옵션을 찾아 터치하세요</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
-          <div className="flex items-start gap-4">
-            <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
-              4
-            </div>
-            <div>
-              <h3 className="text-white font-medium mb-2">"추가" 버튼을 눌러주세요</h3>
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-2xl">✅</span>
-                <span className="text-white/80 text-sm">설치 완료</span>
-              </div>
-              <p className="text-white/80 text-sm">홈 화면에 단골 앱이 추가됩니다</p>
+            <div className="flex-1">
+              <h3 className="text-white font-medium mb-2">"추가" 버튼을 눌러 완료하세요</h3>
+              <p className="text-white/80 text-sm">앱 이름을 확인하고 추가를 선택하면 홈 화면에 설치됩니다</p>
             </div>
           </div>
         </div>
       </div>
-    </div>
+    </>
   )
 
   const AndroidInstructions = () => (
