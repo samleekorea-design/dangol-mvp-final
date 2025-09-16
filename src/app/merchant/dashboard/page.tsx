@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { QrCode, RefreshCw } from 'lucide-react'
+import { QrCode, RefreshCw, TrendingUp } from 'lucide-react'
 import { getKoreanTime, formatKoreanTime, isDealExpired } from '@/lib/timezoneUtils'
 
 interface Deal {
@@ -440,6 +440,17 @@ export default function MerchantDashboard() {
             <p className="text-xl font-light text-blue-200 mb-1">{totalClaims}</p>
             <h3 className="text-xs font-light text-white/80">총 사용 횟수</h3>
           </div>
+        </div>
+
+        {/* Analytics Link */}
+        <div className="mb-6 w-full">
+          <button
+            onClick={() => router.push('/merchant/analytics')}
+            className="w-full bg-white/10 backdrop-blur-sm hover:bg-white/20 text-white font-medium py-3 px-4 rounded-lg transition-all duration-200 border border-white/20 flex items-center justify-center gap-2"
+          >
+            <TrendingUp className="h-5 w-5" />
+            딜 분석 보기
+          </button>
         </div>
 
         {/* Action Buttons */}
