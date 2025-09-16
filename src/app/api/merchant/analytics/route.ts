@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get total deals and active deals
-    const dealStats = await db.pool.query(`
+    const dealStats = await db.database.query(`
       SELECT
         COUNT(*) as total_deals,
         COUNT(CASE WHEN status = 'confirmed' AND expiration > NOW() THEN 1 END) as active_deals
@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
     `, [merchantId])
 
     // Get claims and redemptions
-    const claimStats = await db.pool.query(`
+    const claimStats = await db.database.query(`
       SELECT
         COUNT(*) as total_claims,
         COUNT(CASE WHEN redeemed_at IS NOT NULL THEN 1 END) as total_redemptions
@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
     `, [merchantId])
 
     // Get peak hour
-    const peakHour = await db.pool.query(`
+    const peakHour = await db.database.query(`
       SELECT
         EXTRACT(HOUR FROM created_at) as hour,
         COUNT(*) as claim_count
@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
     `, [merchantId])
 
     // Get average time to redemption (in minutes)
-    const avgRedemptionTime = await db.pool.query(`
+    const avgRedemptionTime = await db.database.query(`
       SELECT
         AVG(EXTRACT(EPOCH FROM (redeemed_at - created_at))/60)::INTEGER as avg_minutes
       FROM claims c
@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
     `, [merchantId])
 
     // Get repeat customer rate
-    const repeatCustomers = await db.pool.query(`
+    const repeatCustomers = await db.database.query(`
       SELECT
         COUNT(DISTINCT phone) as total_customers,
         COUNT(DISTINCT CASE WHEN claim_count > 1 THEN phone END) as repeat_customers
@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
     `, [merchantId])
 
     // Get deal performance
-    const dealPerformance = await db.pool.query(`
+    const dealPerformance = await db.database.query(`
       SELECT
         d.id,
         d.title,
