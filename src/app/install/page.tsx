@@ -270,11 +270,18 @@ export default function InstallPage() {
   const UnsupportedInstructions = () => {
     // Special message for iOS users not using Safari
     if (deviceType === 'ios') {
+      const [isCopied, setIsCopied] = useState(false)
+
       const copyLink = async () => {
         try {
+          console.log('Attempting to copy link:', window.location.href)
           await navigator.clipboard.writeText(window.location.href)
+          console.log('Link copied successfully')
+          setIsCopied(true)
+          setTimeout(() => setIsCopied(false), 2000)
         } catch (err) {
           console.error('Failed to copy link:', err)
+          console.log('Copy failed with error:', err.message)
         }
       }
 
@@ -302,7 +309,7 @@ export default function InstallPage() {
                   onClick={copyLink}
                   className="w-full bg-blue-500/20 backdrop-blur-sm hover:bg-blue-500/30 text-white font-medium py-3 px-4 rounded-xl transition-all duration-200 border border-blue-400/30"
                 >
-                  링크 복사하기
+                  {isCopied ? '복사됨!' : '링크 복사하기'}
                 </button>
               </div>
             </div>
