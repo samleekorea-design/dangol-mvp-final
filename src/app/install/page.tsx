@@ -288,8 +288,15 @@ export default function InstallPage() {
           <div className="space-y-4">
             <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
               <div className="text-center">
+                <Image
+                  src="/icons/safari-browser-logo.png"
+                  alt="Safari 브라우저"
+                  width={48}
+                  height={48}
+                  className="mx-auto mb-3"
+                />
                 <p className="text-white/80 text-sm mb-4">
-                  Chrome, Firefox 등 다른 브라우저에서는 홈 화면에 추가 기능이 지원되지 않습니다.
+                  애플 사파리 브라우저를 새로 여시고 아래 링크를 복사해 주소창에 붙여주세요.
                 </p>
                 <button
                   onClick={copyLink}
