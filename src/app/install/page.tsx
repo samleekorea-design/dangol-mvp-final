@@ -270,10 +270,17 @@ export default function InstallPage() {
   const UnsupportedInstructions = () => {
     // Special message for iOS users not using Safari
     if (deviceType === 'ios') {
+      const copyLink = async () => {
+        try {
+          await navigator.clipboard.writeText(window.location.href)
+        } catch (err) {
+          console.error('Failed to copy link:', err)
+        }
+      }
+
       return (
         <div className="space-y-6">
           <div className="text-center mb-8">
-            <div className="text-6xl mb-4">🍎</div>
             <h2 className="text-2xl font-light text-white mb-2">Safari 브라우저를 사용해주세요</h2>
             <p className="text-white/80 text-base font-semibold">iOS에서는 Safari에서만 PWA 앱 설치가 가능합니다</p>
           </div>
@@ -281,21 +288,15 @@ export default function InstallPage() {
           <div className="space-y-4">
             <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
               <div className="text-center">
-                <h3 className="text-white font-medium mb-4">Safari로 이동하기</h3>
-                <p className="text-white/90 mb-3">
-                  iOS에서 PWA 앱을 설치하려면 반드시 Safari 브라우저를 사용해야 합니다.
-                </p>
-                <p className="text-white/80 text-sm">
+                <p className="text-white/80 text-sm mb-4">
                   Chrome, Firefox 등 다른 브라우저에서는 홈 화면에 추가 기능이 지원되지 않습니다.
                 </p>
-              </div>
-            </div>
-
-            <div className="bg-purple-500/20 backdrop-blur-sm rounded-xl p-4 border border-purple-400/30">
-              <div className="text-center">
-                <p className="text-white font-medium">
-                  Safari에서 이 페이지를 다시 열어주세요
-                </p>
+                <button
+                  onClick={copyLink}
+                  className="w-full bg-blue-500/20 backdrop-blur-sm hover:bg-blue-500/30 text-white font-medium py-3 px-4 rounded-xl transition-all duration-200 border border-blue-400/30"
+                >
+                  링크 복사하기
+                </button>
               </div>
             </div>
           </div>
@@ -416,7 +417,7 @@ export default function InstallPage() {
             onClick={() => router.push('/customer')}
             className="w-full bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white font-medium py-4 px-6 rounded-2xl text-lg transition-all duration-200 border border-white/20"
           >
-            혜택 보러가기
+            그냥 브라우저로 볼게요
           </button>
         </div>
 
