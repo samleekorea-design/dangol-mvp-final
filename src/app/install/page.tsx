@@ -16,10 +16,10 @@ export default function InstallPage() {
       // Detect iOS
       if (/iphone|ipad|ipod/.test(userAgent)) {
         setDeviceType('ios')
-        if (/safari/.test(userAgent) && !/chrome/.test(userAgent)) {
-          setBrowserType('safari')
-        } else if (/chrome/.test(userAgent)) {
+        if (/crios/.test(userAgent)) {
           setBrowserType('chrome')
+        } else if (/safari/.test(userAgent)) {
+          setBrowserType('safari')
         }
       }
       // Detect Android
