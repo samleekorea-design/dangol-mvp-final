@@ -267,45 +267,83 @@ export default function InstallPage() {
     )
   }
 
-  const UnsupportedInstructions = () => (
-    <div className="space-y-6">
-      <div className="text-center mb-8">
-        <div className="text-6xl mb-4">🌐</div>
-        <h2 className="text-2xl font-light text-white mb-2">브라우저 안내</h2>
-        <p className="text-white/80 text-base">앱 설치를 위해 권장 브라우저를 사용해주세요</p>
-      </div>
+  const UnsupportedInstructions = () => {
+    // Special message for iOS users not using Safari
+    if (deviceType === 'ios') {
+      return (
+        <div className="space-y-6">
+          <div className="text-center mb-8">
+            <div className="text-6xl mb-4">🍎</div>
+            <h2 className="text-2xl font-light text-white mb-2">Safari 브라우저를 사용해주세요</h2>
+            <p className="text-white/80 text-base font-semibold">iOS에서는 Safari에서만 PWA 앱 설치가 가능합니다</p>
+          </div>
 
-      <div className="space-y-4">
-        <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
-          <div className="text-center">
-            <h3 className="text-white font-medium mb-4">권장 브라우저</h3>
-            <div className="space-y-3">
-              <div className="flex items-center justify-center gap-3">
-                <span className="text-2xl">🍎</span>
-                <span className="text-white">iOS: Safari 브라우저</span>
+          <div className="space-y-4">
+            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
+              <div className="text-center">
+                <h3 className="text-white font-medium mb-4">Safari로 이동하기</h3>
+                <p className="text-white/90 mb-3">
+                  iOS에서 PWA 앱을 설치하려면 반드시 Safari 브라우저를 사용해야 합니다.
+                </p>
+                <p className="text-white/80 text-sm">
+                  Chrome, Firefox 등 다른 브라우저에서는 홈 화면에 추가 기능이 지원되지 않습니다.
+                </p>
               </div>
-              <div className="flex items-center justify-center gap-3">
-                <span className="text-2xl">🤖</span>
-                <span className="text-white">Android: Chrome 브라우저</span>
-              </div>
-              <div className="flex items-center justify-center gap-3">
-                <span className="text-2xl">💻</span>
-                <span className="text-white">데스크톱: Chrome 브라우저</span>
+            </div>
+
+            <div className="bg-purple-500/20 backdrop-blur-sm rounded-xl p-4 border border-purple-400/30">
+              <div className="text-center">
+                <p className="text-white font-medium">
+                  Safari에서 이 페이지를 다시 열어주세요
+                </p>
               </div>
             </div>
           </div>
         </div>
+      )
+    }
 
-        <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
-          <div className="text-center">
-            <p className="text-white/80 text-sm">
-              권장 브라우저에서 다시 방문하시면 앱 설치가 가능합니다
-            </p>
+    // General message for other unsupported combinations
+    return (
+      <div className="space-y-6">
+        <div className="text-center mb-8">
+          <div className="text-6xl mb-4">🌐</div>
+          <h2 className="text-2xl font-light text-white mb-2">브라우저 안내</h2>
+          <p className="text-white/80 text-base">앱 설치를 위해 권장 브라우저를 사용해주세요</p>
+        </div>
+
+        <div className="space-y-4">
+          <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
+            <div className="text-center">
+              <h3 className="text-white font-medium mb-4">권장 브라우저</h3>
+              <div className="space-y-3">
+                <div className="flex items-center justify-center gap-3">
+                  <span className="text-2xl">🍎</span>
+                  <span className="text-white">iOS: Safari 브라우저</span>
+                </div>
+                <div className="flex items-center justify-center gap-3">
+                  <span className="text-2xl">🤖</span>
+                  <span className="text-white">Android: Chrome 브라우저</span>
+                </div>
+                <div className="flex items-center justify-center gap-3">
+                  <span className="text-2xl">💻</span>
+                  <span className="text-white">데스크톱: Chrome 브라우저</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
+            <div className="text-center">
+              <p className="text-white/80 text-sm">
+                권장 브라우저에서 다시 방문하시면 앱 설치가 가능합니다
+              </p>
+            </div>
           </div>
         </div>
       </div>
-    </div>
-  )
+    )
+  }
 
   const renderInstructions = () => {
     if (deviceType === 'ios' && browserType === 'safari') {
