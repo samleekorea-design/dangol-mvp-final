@@ -8,12 +8,21 @@ export async function GET(request: NextRequest) {
     if (!merchantId) {
       return NextResponse.json({ error: 'Merchant ID required' }, { status: 400 })
     }
-
+console.log('Starting analytics for merchant:', merchantId);
+    
+    try {
+      // Test database connection first
+      const testQuery = await db.database.query('SELECT NOW()');
+      console.log('Database connected:', testQuery.rows[0].now);
+    } catch (dbError) {
+      console.error('Database connection failed:', dbError);
+      return NextResponse.json({ error: 'Database connection failed' }, { status: 500 });
+    }
     // Get total deals and active deals
     const dealStats = await db.database.query(`
       SELECT
         COUNT(*) as total_deals,
-        COUNT(CASE WHEN status = 'confirmed' AND expiration > NOW() THEN 1 END) as active_deals
+        COUNT(CASE WHEN status = 'confirmed' AND expires_at > NOW() THEN 1 END) as active_deals
       FROM deals
       WHERE merchant_id = $1
     `, [merchantId])
@@ -52,19 +61,18 @@ export async function GET(request: NextRequest) {
     `, [merchantId])
 
     // Get repeat customer rate
-    const repeatCustomers = await db.database.query(`
-      SELECT
-        COUNT(DISTINCT phone) as total_customers,
-        COUNT(DISTINCT CASE WHEN claim_count > 1 THEN phone END) as repeat_customers
+const repeatCustomers = await db.database.query(`
+      SELECT 
+        COUNT(DISTINCT device_id) as total_customers,
+        COUNT(DISTINCT CASE WHEN claim_count > 1 THEN device_id END) as repeat_customers
       FROM (
-        SELECT phone, COUNT(*) as claim_count
+        SELECT device_id, COUNT(*) as claim_count
         FROM claims c
         JOIN deals d ON c.deal_id = d.id
         WHERE d.merchant_id = $1
-        GROUP BY phone
+        GROUP BY device_id
       ) customer_claims
     `, [merchantId])
-
     // Get deal performance
     const dealPerformance = await db.database.query(`
       SELECT

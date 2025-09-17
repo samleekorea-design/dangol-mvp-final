@@ -37,65 +37,78 @@ export default function MerchantAnalyticsPage() {
   }, [])
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-6xl mx-auto px-4 py-6">
+    <div className="min-h-screen bg-gradient-to-br from-[#65BBFF] via-10% via-[#3A82FF] via-25% to-[#1E6AFF]">
+      <div className="max-w-6xl mx-auto px-6 py-8">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <button onClick={() => router.back()} className="flex items-center text-gray-600">
+        <div className="flex items-center justify-between mb-8">
+          <button onClick={() => router.back()} className="flex items-center text-white/80 hover:text-white transition-colors">
             <ArrowLeft className="h-5 w-5 mr-2" />
             돌아가기
           </button>
-          <h1 className="text-2xl font-bold">딜 분석</h1>
+          <h1 className="text-3xl font-bold text-white">딜 분석</h1>
         </div>
 
         {loading ? (
-          <div>로딩 중...</div>
+          <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl p-8 text-center">
+            <div className="text-white text-lg">로딩 중...</div>
+          </div>
         ) : (
-          <div className="space-y-6">
+          <div className="space-y-8">
             {/* Key Metrics */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="bg-white p-4 rounded-lg shadow">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+              <div className="bg-white/10 backdrop-blur-sm border border-white/20 p-6 rounded-xl">
                 <div className="flex items-center justify-between">
-                  <TrendingUp className="h-8 w-8 text-blue-500" />
-                  <span className="text-2xl font-bold">{analytics.conversionRate}%</span>
+                  <TrendingUp className="h-8 w-8 text-white/80" />
+                  <span className="text-3xl font-bold text-white">{analytics?.conversionRate}%</span>
                 </div>
-                <p className="text-sm text-gray-600 mt-2">전환율</p>
+                <p className="text-sm text-white/70 mt-3">전환율</p>
               </div>
-              
-              <div className="bg-white p-4 rounded-lg shadow">
+
+              <div className="bg-white/10 backdrop-blur-sm border border-white/20 p-6 rounded-xl">
                 <div className="flex items-center justify-between">
-                  <Users className="h-8 w-8 text-green-500" />
-                  <span className="text-2xl font-bold">{analytics.repeatCustomerRate}%</span>
+                  <Users className="h-8 w-8 text-white/80" />
+                  <span className="text-3xl font-bold text-white">{analytics?.repeatCustomerRate}%</span>
                 </div>
-                <p className="text-sm text-gray-600 mt-2">재방문율</p>
+                <p className="text-sm text-white/70 mt-3">재방문율</p>
               </div>
-              
-              <div className="bg-white p-4 rounded-lg shadow">
+
+              <div className="bg-white/10 backdrop-blur-sm border border-white/20 p-6 rounded-xl">
                 <div className="flex items-center justify-between">
-                  <Clock className="h-8 w-8 text-purple-500" />
-                  <span className="text-2xl font-bold">{analytics.peakHour}시</span>
+                  <Clock className="h-8 w-8 text-white/80" />
+                  <span className="text-3xl font-bold text-white">{analytics?.peakHour}시</span>
                 </div>
-                <p className="text-sm text-gray-600 mt-2">피크 시간</p>
+                <p className="text-sm text-white/70 mt-3">피크 시간</p>
               </div>
-              
-              <div className="bg-white p-4 rounded-lg shadow">
+
+              <div className="bg-white/10 backdrop-blur-sm border border-white/20 p-6 rounded-xl">
                 <div className="flex items-center justify-between">
-                  <DollarSign className="h-8 w-8 text-yellow-500" />
-                  <span className="text-2xl font-bold">{analytics.avgTimeToRedeem}분</span>
+                  <DollarSign className="h-8 w-8 text-white/80" />
+                  <span className="text-3xl font-bold text-white">{analytics?.avgTimeToRedeem}분</span>
                 </div>
-                <p className="text-sm text-gray-600 mt-2">평균 사용시간</p>
+                <p className="text-sm text-white/70 mt-3">평균 사용시간</p>
               </div>
             </div>
 
-
             {/* Insights */}
-            <div className="bg-white p-6 rounded-lg shadow">
-              <h2 className="text-lg font-bold mb-4">인사이트</h2>
-              <ul className="space-y-2 text-sm">
-                <li>• 오후 {analytics.peakHour}시에 가장 많은 고객이 딜을 클레임합니다</li>
-                <li>• 고객의 {analytics.repeatCustomerRate}%가 재방문 고객입니다</li>
-                <li>• 평균 {analytics.avgTimeToRedeem}분 내에 딜을 사용합니다</li>
-                <li>• 전환율이 {analytics.conversionRate}%로 업계 평균보다 높습니다</li>
+            <div className="bg-white/10 backdrop-blur-sm border border-white/20 p-8 rounded-xl">
+              <h2 className="text-2xl font-bold text-white mb-6">인사이트</h2>
+              <ul className="space-y-4 text-white/80">
+                <li className="flex items-start">
+                  <span className="text-white/60 mr-3">•</span>
+                  <span>오후 {analytics?.peakHour}시에 가장 많은 고객이 딜을 클레임합니다</span>
+                </li>
+                <li className="flex items-start">
+                  <span className="text-white/60 mr-3">•</span>
+                  <span>고객의 {analytics?.repeatCustomerRate}%가 재방문 고객입니다</span>
+                </li>
+                <li className="flex items-start">
+                  <span className="text-white/60 mr-3">•</span>
+                  <span>평균 {analytics?.avgTimeToRedeem}분 내에 딜을 사용합니다</span>
+                </li>
+                <li className="flex items-start">
+                  <span className="text-white/60 mr-3">•</span>
+                  <span>전환율이 {analytics?.conversionRate}%로 업계 평균보다 높습니다</span>
+                </li>
               </ul>
             </div>
           </div>
