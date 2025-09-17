@@ -73,27 +73,25 @@ const repeatCustomers = await db.database.query(`
         GROUP BY device_id
       ) customer_claims
     `, [merchantId])
-    // Get deal performance
+// Get deal performance grouped by date
     const dealPerformance = await db.database.query(`
-      SELECT
+      SELECT 
         d.id,
         d.title,
+        DATE(d.created_at) as deal_date,
         COUNT(c.id) as claims,
         COUNT(CASE WHEN c.redeemed_at IS NOT NULL THEN 1 END) as redemptions,
-        CASE
-          WHEN COUNT(c.id) > 0
+        CASE 
+          WHEN COUNT(c.id) > 0 
           THEN (COUNT(CASE WHEN c.redeemed_at IS NOT NULL THEN 1 END)::FLOAT / COUNT(c.id) * 100)::INTEGER
-          ELSE 0
+          ELSE 0 
         END as conversion_rate
       FROM deals d
       LEFT JOIN claims c ON d.id = c.deal_id
       WHERE d.merchant_id = $1
-      GROUP BY d.id, d.title
-      ORDER BY claims DESC
-      LIMIT 5
-
+      GROUP BY d.id, d.title, DATE(d.created_at)
+      ORDER BY deal_date DESC, claims DESC
     `, [merchantId])
-
     const totalClaims = parseInt(claimStats.rows[0]?.total_claims || 0)
     const totalRedemptions = parseInt(claimStats.rows[0]?.total_redemptions || 0)
     const conversionRate = totalClaims > 0 ? Math.round((totalRedemptions / totalClaims) * 100) : 0

@@ -55,7 +55,7 @@ export default function MerchantAnalyticsPage() {
         ) : (
           <div className="space-y-8">
             {/* Key Metrics */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <div className="bg-white/10 backdrop-blur-sm border border-white/20 p-6 rounded-xl">
                 <div className="flex items-center justify-between">
                   <TrendingUp className="h-8 w-8 text-white/80" />
@@ -111,6 +111,44 @@ export default function MerchantAnalyticsPage() {
                 </li>
               </ul>
             </div>
+{/* Deal Performance by Date */}
+            {analytics?.topDeals && analytics.topDeals.length > 0 && (
+              <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 mt-4">
+                <h2 className="text-lg font-bold mb-3 text-white">딜별 성과</h2>
+                <div className="space-y-4">
+                  {Object.entries(
+                    analytics.topDeals.reduce((groups: any, deal: any) => {
+                      const date = new Date(deal.deal_date).toLocaleDateString('ko-KR', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric'
+                      })
+                      if (!groups[date]) groups[date] = []
+                      groups[date].push(deal)
+                      return groups
+                    }, {})
+                  ).map(([date, deals]: [string, any]) => (
+                    <div key={date}>
+                      <div className="text-white/80 text-sm font-bold mb-2 border-b border-white/20 pb-1">
+                        {date}
+                      </div>
+                      <div className="space-y-2">
+                        {deals.map((deal: any) => (
+                          <div key={deal.id} className="ml-3">
+                            <div className="font-medium text-white text-sm">{deal.title}</div>
+                            <div className="flex gap-4 text-xs text-white/60 mt-1">
+                              <span>클레임: {deal.claims}</span>
+                              <span>사용: {deal.redemptions}</span>
+                              <span className="text-white/80">전환율: {deal.conversion_rate}%</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
