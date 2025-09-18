@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { BrowserQRCodeReader } from '@zxing/browser'
+import { Scanner } from '@yudiel/react-qr-scanner'
 
 type ScanStatus = 'ready' | 'scanning' | 'processing' | 'success' | 'error'
 
@@ -13,17 +13,14 @@ interface ScanResult {
 
 export default function MerchantScanPage() {
   const router = useRouter()
-  const videoRef = useRef<HTMLVideoElement>(null)
-  const readerRef = useRef<BrowserQRCodeReader | null>(null)
-  const decodingControlsRef = useRef<any>(null)
   const [scanStatus, setScanStatus] = useState<ScanStatus>('ready')
   const [scanResult, setScanResult] = useState<ScanResult | null>(null)
   const [manualCode, setManualCode] = useState('')
   const [cameraStarted, setCameraStarted] = useState(false)
+  const [isPaused, setIsPaused] = useState(true)
   const [isMerchantLoggedIn, setIsMerchantLoggedIn] = useState(false)
+  const processingRef = useRef(false)
   const resetTimeoutRef = useRef<NodeJS.Timeout>()
-  const isProcessingRef = useRef(false)
-  const lastScanTimeRef = useRef(0)
 
   useEffect(() => {
     // Check if merchant is logged in (client-side only)
@@ -32,10 +29,7 @@ export default function MerchantScanPage() {
       setIsMerchantLoggedIn(!!merchantId)
     }
     
-    startCamera()
-    
     return () => {
-      stopCamera()
       if (resetTimeoutRef.current) {
         clearTimeout(resetTimeoutRef.current)
       }
@@ -51,102 +45,43 @@ export default function MerchantScanPage() {
     }
   }, [scanStatus])
 
-  const startCamera = async () => {
-    try {
-      if (!readerRef.current) {
-        readerRef.current = new BrowserQRCodeReader()
-      }
-
-      if (videoRef.current) {
-        const controls = await readerRef.current.decodeFromVideoDevice(
-          undefined, // Use default camera
-          videoRef.current,
-(result, error) => {
-  if (result && !isProcessingRef.current) {
-    const now = Date.now()
-    // Enforce 2-second minimum between scans
-    if (now - lastScanTimeRef.current < 2000) return
-
-    isProcessingRef.current = true
-    lastScanTimeRef.current = now
-    const code = result.getText()
-    processCode(code)
-  }
-}
-        )
-        decodingControlsRef.current = controls
-        setCameraStarted(true)
-        setScanStatus('ready')
-      }
-    } catch (error) {
-      console.error('Camera error:', error)
-      setScanStatus('error')
-      setScanResult({ message: '카메라 접근 오류' })
-    }
+  const startCamera = () => {
+    setCameraStarted(true)
+    setIsPaused(false)
+    setScanStatus('scanning')
+    processingRef.current = false
   }
 
   const stopCamera = () => {
-    // Stop decoding controls
-    if (decodingControlsRef.current) {
-      try {
-        decodingControlsRef.current.stop()
-      } catch (error) {
-        console.error('Error stopping decoding controls:', error)
-      }
-    }
-
-    // Aggressively stop reader with all available methods
-    if (readerRef.current) {
-      try {
-        readerRef.current.stopContinuousDecode()
-      } catch (error) {
-        console.error('Error calling stopContinuousDecode:', error)
-      }
-
-      try {
-        readerRef.current.stop()
-      } catch (error) {
-        console.error('Error calling stop:', error)
-      }
-
-      try {
-        readerRef.current.reset()
-      } catch (error) {
-        console.error('Error calling reset:', error)
-      }
-
-      // Force complete recreation
-      readerRef.current = null
-    }
-
-    // Stop all video tracks
-    if (videoRef.current && videoRef.current.srcObject) {
-      const stream = videoRef.current.srcObject as MediaStream
-      stream.getTracks().forEach(track => track.stop())
-      videoRef.current.srcObject = null
-    }
-
-    // Clear all refs and state
-    decodingControlsRef.current = null
     setCameraStarted(false)
+    setIsPaused(true)
+    // Note: Don't set scanStatus to 'ready' here - let resetScan handle that
+    // setScanStatus('ready')
   }
 
   const resetScan = () => {
     setScanStatus('ready')
     setScanResult(null)
     setManualCode('')
-  // Don't auto-restart camera - user must tap to start again
-  // if (!cameraStarted) {
-  //   startCamera()
-  // }
+    processingRef.current = false
+    // Don't auto-restart - require manual restart
+    stopCamera()
   }
 
   const processCode = async (code: string) => {
+    // Prevent multiple simultaneous processing
+    if (processingRef.current) return
+    processingRef.current = true
+    
+    // Immediately pause scanning
+    setIsPaused(true)
+    
     // Validate code format (6 characters)
     const cleanCode = code.trim().toUpperCase()
     if (!cleanCode || cleanCode.length !== 6) {
       setScanStatus('error')
       setScanResult({ message: '유효하지 않은 코드 형식입니다' })
+      processingRef.current = false
       return
     }
 
@@ -165,30 +100,38 @@ export default function MerchantScanPage() {
 
       if (data.success) {
         setScanStatus('success')
-        stopCamera()
         setScanResult({
           message: '사용 완료!',
           dealTitle: data.deal?.title
         })
       } else {
         setScanStatus('error')
-        setScanResult({ 
-          message: data.error || '코드 처리 실패' 
+
+        // Translate common English API errors to Korean
+        let errorMessage = data.error
+        if (errorMessage) {
+          if (errorMessage.includes('Invalid, expired, or already redeemed')) {
+            errorMessage = '유효하지 않거나 만료되었거나 이미 사용된 코드입니다'
+          } else if (errorMessage.includes('already redeemed')) {
+            errorMessage = '이미 사용된 코드입니다'
+          } else if (errorMessage.includes('expired')) {
+            errorMessage = '만료된 코드입니다'
+          }
+        }
+
+        setScanResult({
+          message: errorMessage || '코드 처리 실패'
         })
-        stopCamera()  // ADD THIS LINE - stop camera on error too
       }
     } catch (error) {
       setScanStatus('error')
       setScanResult({ 
         message: '네트워크 오류가 발생했습니다' 
       })
-      stopCamera()  // ADD THIS LINE - stop camera on network error too
     } finally {
-  // Reset the processing flag after 2 seconds
-  setTimeout(() => {
-    isProcessingRef.current = false
-  }, 2000)
-}
+      // Note: Don't call stopCamera() here to allow success/error messages to display
+      // stopCamera()
+    }
   }
 
   const handleManualSubmit = (e: React.FormEvent) => {
@@ -203,6 +146,16 @@ export default function MerchantScanPage() {
     setManualCode(alphanumericValue)
   }
 
+  const handleScan = (detectedCodes: any) => {
+    // Get the first detected QR code
+    if (detectedCodes && detectedCodes.length > 0) {
+      const code = detectedCodes[0].rawValue
+      if (code && !processingRef.current) {
+        processCode(code)
+      }
+    }
+  }
+
   return (
     <div className="min-h-screen bg-[radial-gradient(ellipse_at_top_left,_#65BBFF_0%,_#3A82FF_25%,_#2570EA_50%,_#1857C7_100%)]">
       {/* Header */}
@@ -210,9 +163,7 @@ export default function MerchantScanPage() {
         <div className="flex items-center justify-between mb-4">
           <button
             onClick={() => {
-              // Clean up camera before navigation
               stopCamera()
-              // Use back navigation for better UX
               if (isMerchantLoggedIn) {
                 router.push('/merchant/dashboard')
               } else {
@@ -234,7 +185,7 @@ export default function MerchantScanPage() {
       </div>
 
       {/* Status Display */}
-      {scanStatus !== 'ready' && (
+      {scanStatus !== 'ready' && scanStatus !== 'scanning' && (
         <div className={`p-8 text-center ${
           scanStatus === 'success' ? 'bg-green-100 border-b-4 border-green-500' : 
           scanStatus === 'error' ? 'bg-red-100 border-b-4 border-red-500' : 
@@ -269,36 +220,51 @@ export default function MerchantScanPage() {
       )}
 
       {/* Scanner and Input Area */}
-      {scanStatus === 'ready' && (
+      {(scanStatus === 'ready' || scanStatus === 'scanning') && (
         <div className="p-6">
           {/* QR Scanner */}
           <div className="max-w-lg mx-auto mb-8">
             <div className="bg-white rounded-2xl shadow-lg p-6">
               <h2 className="text-xl font-bold text-center mb-4 text-gray-900">QR 코드 스캔</h2>
               <div className="relative bg-black rounded-lg overflow-hidden aspect-square">
-                <video
-                  ref={videoRef}
-                  className="w-full h-full object-cover"
-                  playsInline
-                  muted
-                />
-                {/* Scanner Overlay */}
-                <div className="absolute inset-0 border-2 border-white/30 m-12 rounded-lg">
-                  <div className="absolute -top-1 -left-1 w-8 h-8 border-t-4 border-l-4 border-white rounded-tl-lg"></div>
-                  <div className="absolute -top-1 -right-1 w-8 h-8 border-t-4 border-r-4 border-white rounded-tr-lg"></div>
-                  <div className="absolute -bottom-1 -left-1 w-8 h-8 border-b-4 border-l-4 border-white rounded-bl-lg"></div>
-                  <div className="absolute -bottom-1 -right-1 w-8 h-8 border-b-4 border-r-4 border-white rounded-br-lg"></div>
-                </div>
-                {/* Camera Restart Button */}
-                {scanStatus === 'ready' && !cameraStarted && (
-                  <button
-                    onClick={startCamera}
-                    className="absolute inset-0 m-auto w-32 h-12 bg-white text-gray-900 font-bold rounded-lg shadow-lg hover:bg-gray-100 transition-colors"
-                  >
-                    다시 스캔하기
-                  </button>
+                {cameraStarted ? (
+                  <Scanner
+                    paused={isPaused}
+                    onScan={handleScan}
+                    onError={(error) => console.error('Scanner error:', error)}
+                    constraints={{
+                      facingMode: 'environment',
+                      aspectRatio: 1
+                    }}
+                    formats={['qr_code']}
+                    styles={{
+                      container: {
+                        width: '100%',
+                        height: '100%'
+                      }
+                    }}
+                  />
+                ) : (
+                  <div className="absolute inset-0 flex items-center justify-center bg-gray-900">
+                    <button
+                      onClick={startCamera}
+                      className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                      카메라 시작
+                    </button>
+                  </div>
                 )}
               </div>
+              
+              {cameraStarted && (
+                <button
+                  onClick={stopCamera}
+                  className="w-full mt-4 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+                >
+                  스캔 중지
+                </button>
+              )}
+              
               <p className="text-center text-gray-700 mt-4 text-lg font-medium">
                 고객의 QR 코드를 중앙에 맞춰주세요
               </p>
@@ -346,26 +312,26 @@ export default function MerchantScanPage() {
       )}
 
       {/* Instructions */}
-      {scanStatus === 'ready' && (
+      {(scanStatus === 'ready' || scanStatus === 'scanning') && (
         <div className="max-w-lg mx-auto mt-8 px-6 pb-8">
           <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-6 shadow-lg">
             <h3 className="font-bold text-gray-900 mb-4 text-lg">사용 방법</h3>
             <div className="space-y-2 text-gray-700">
               <div className="flex items-start gap-3">
                 <span className="text-blue-600 font-bold">1.</span>
-                <span>고객이 보여주는 QR 코드를 카메라에 비춰주세요</span>
+                <span>카메라 시작 버튼을 눌러 스캔을 시작하세요</span>
               </div>
               <div className="flex items-start gap-3">
                 <span className="text-blue-600 font-bold">2.</span>
-                <span>또는 6자리 코드를 직접 입력하세요</span>
+                <span>고객이 보여주는 QR 코드를 카메라에 비춰주세요</span>
               </div>
               <div className="flex items-start gap-3">
                 <span className="text-blue-600 font-bold">3.</span>
-                <span>혜택이 자동으로 처리되고 결과가 표시됩니다</span>
+                <span>또는 6자리 코드를 직접 입력하세요</span>
               </div>
               <div className="flex items-start gap-3">
                 <span className="text-blue-600 font-bold">4.</span>
-                <span>3초 후 다음 고객을 위해 자동 준비됩니다</span>
+                <span>혜택이 자동으로 처리되고 결과가 표시됩니다</span>
               </div>
             </div>
           </div>

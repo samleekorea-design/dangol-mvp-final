@@ -21,6 +21,7 @@
         "@types/bcrypt": "^6.0.0",
         "@types/pg": "^8.15.5",
         "@types/uuid": "^10.0.0",
+        "@yudiel/react-qr-scanner": "^2.3.1",
         "@zxing/browser": "^0.1.5",
         "@zxing/library": "^0.21.3",
         "bcrypt": "^6.0.0",
