@@ -41,6 +41,7 @@ export default function MerchantDashboard() {
   const [editingQuantity, setEditingQuantity] = useState<{[dealId: number]: string}>({})
   const [actionMessages, setActionMessages] = useState<{[dealId: number]: {type: 'success' | 'error', text: string}}>({})
   const [loadingActions, setLoadingActions] = useState<{[dealId: number]: boolean}>({})
+  const [showCancelDialog, setShowCancelDialog] = useState<number | null>(null)
 
   useEffect(() => {
     // Check for merchant session/authentication
@@ -292,8 +293,8 @@ export default function MerchantDashboard() {
 
     const quantity = parseInt(newQuantity)
     if (isNaN(quantity) || quantity < 0) {
-      setActionMessages(prev => ({ 
-        ...prev, 
+      setActionMessages(prev => ({
+        ...prev,
         [dealId]: { type: 'error', text: '유효한 수량을 입력해주세요' }
       }))
       return
@@ -308,7 +309,7 @@ export default function MerchantDashboard() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           merchantId,
           maxClaims: quantity
         }),
@@ -317,14 +318,14 @@ export default function MerchantDashboard() {
       const data = await response.json()
 
       if (data.success) {
-        setActionMessages(prev => ({ 
-          ...prev, 
+        setActionMessages(prev => ({
+          ...prev,
           [dealId]: { type: 'success', text: '수량이 성공적으로 업데이트되었습니다' }
         }))
         // Update local deal state
-        setDeals(prevDeals => 
-          prevDeals.map(deal => 
-            deal.id === dealId 
+        setDeals(prevDeals =>
+          prevDeals.map(deal =>
+            deal.id === dealId
               ? { ...deal, max_claims: quantity }
               : deal
           )
@@ -338,18 +339,64 @@ export default function MerchantDashboard() {
         // Clear message after 3 seconds
         setTimeout(() => clearActionMessage(dealId), 3000)
       } else {
-        setActionMessages(prev => ({ 
-          ...prev, 
+        setActionMessages(prev => ({
+          ...prev,
           [dealId]: { type: 'error', text: data.error || '수량 업데이트에 실패했습니다' }
         }))
       }
     } catch (error) {
-      setActionMessages(prev => ({ 
-        ...prev, 
+      setActionMessages(prev => ({
+        ...prev,
         [dealId]: { type: 'error', text: '네트워크 오류가 발생했습니다' }
       }))
     } finally {
       setLoadingActions(prev => ({ ...prev, [dealId]: false }))
+    }
+  }
+
+  const handleCancelDeal = async (dealId: number) => {
+    if (!merchantId) return
+
+    setLoadingActions(prev => ({ ...prev, [dealId]: true }))
+    clearActionMessage(dealId)
+
+    try {
+      const response = await fetch(`/api/merchants/deals/${dealId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          merchantId,
+          maxClaims: 0
+        }),
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        setActionMessages(prev => ({
+          ...prev,
+          [dealId]: { type: 'success', text: '딜이 성공적으로 취소되었습니다' }
+        }))
+        // Refresh deals list
+        fetchDeals()
+        // Clear message after 3 seconds
+        setTimeout(() => clearActionMessage(dealId), 3000)
+      } else {
+        setActionMessages(prev => ({
+          ...prev,
+          [dealId]: { type: 'error', text: data.error || '딜 취소에 실패했습니다' }
+        }))
+      }
+    } catch (error) {
+      setActionMessages(prev => ({
+        ...prev,
+        [dealId]: { type: 'error', text: '네트워크 오류가 발생했습니다' }
+      }))
+    } finally {
+      setLoadingActions(prev => ({ ...prev, [dealId]: false }))
+      setShowCancelDialog(null)
     }
   }
 
@@ -361,8 +408,9 @@ export default function MerchantDashboard() {
   }
 
   const totalDeals = deals.length
-  const activeDealsList = deals.filter(deal => !isDealExpired(deal.id, deal.expires_at))
-  const expiredDealsList = deals.filter(deal => isDealExpired(deal.id, deal.expires_at))
+  const cancelledDealsList = deals.filter(deal => deal.max_claims === 0)
+  const activeDealsList = deals.filter(deal => deal.max_claims > 0 && !isDealExpired(deal.id, deal.expires_at))
+  const expiredDealsList = deals.filter(deal => deal.max_claims > 0 && isDealExpired(deal.id, deal.expires_at))
   const activeDeals = activeDealsList.length
   const totalClaims = deals.reduce((sum, deal) => sum + deal.current_claims, 0)
 
@@ -822,12 +870,18 @@ export default function MerchantDashboard() {
                           </div>
                         </div>
                       ) : (
-                        <div className="flex justify-end">
-                          <button 
+                        <div className="flex justify-end gap-2">
+                          <button
                             onClick={() => setEditingQuantity(prev => ({ ...prev, [deal.id]: deal.max_claims.toString() }))}
                             className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-lg text-sm transition-colors duration-200"
                           >
                             수정 (수량만)
+                          </button>
+                          <button
+                            onClick={() => setShowCancelDialog(deal.id)}
+                            className="bg-red-600 hover:bg-red-700 text-white font-medium px-4 py-2 rounded-lg text-sm transition-colors duration-200"
+                          >
+                            취소
                           </button>
                         </div>
                       )}
@@ -838,6 +892,43 @@ export default function MerchantDashboard() {
             </div>
           )}
         </div>
+
+        {/* Cancelled Deals Section */}
+        {cancelledDealsList.length > 0 && (
+          <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 w-full mb-6">
+            <div className="px-6 py-4 border-b border-white/20">
+              <h2 className="text-xl font-light text-white">취소된 행사</h2>
+              <p className="text-sm text-white/70 mt-1">{cancelledDealsList.length}개의 취소된 혜택</p>
+            </div>
+            <div className="divide-y divide-white/20">
+              {cancelledDealsList.map((deal) => (
+                <div key={deal.id} className="px-6 py-4">
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <h3 className="text-lg font-light text-white mb-1">
+                        {deal.title}
+                        <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-500/30 text-gray-300">
+                          취소됨
+                        </span>
+                      </h3>
+                      <p className="text-white/80 mb-2">{deal.description}</p>
+                      <div className="text-sm text-white/60">
+                        <p>사용: {deal.current_claims} / {deal.max_claims}</p>
+                        <p>취소: {formatDate(deal.expires_at)}</p>
+                        <p>생성: {formatDate(deal.created_at)}</p>
+                      </div>
+                    </div>
+                    <div className="ml-4 text-right">
+                      <div className="text-sm font-light text-white/80">
+                        #{deal.id}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Expired Deals Section */}
         {expiredDealsList.length > 0 && (
@@ -911,6 +1002,40 @@ export default function MerchantDashboard() {
           <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 w-full">
             <div className="px-6 py-8 text-center text-white/80">
               아직 만들어진 혜택이 없습니다. 첫 번째 혜택을 만들어보세요!
+            </div>
+          </div>
+        )}
+
+        {/* Cancel Deal Confirmation Dialog */}
+        {showCancelDialog !== null && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 px-4">
+            <div className="bg-white rounded-lg p-6 max-w-sm w-full">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">딜 취소 확인</h3>
+              <p className="text-sm text-gray-600 mb-6">
+                취소된 딜은 새로운 클레임을 받지 않습니다. 기존 클레임은 유효합니다. 계속하시겠습니까?
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => handleCancelDeal(showCancelDialog)}
+                  disabled={loadingActions[showCancelDialog]}
+                  className="flex-1 bg-red-600 hover:bg-red-700 disabled:bg-red-600/50 text-white font-medium py-2 px-4 rounded-lg text-sm transition-colors duration-200 flex items-center justify-center gap-2"
+                >
+                  {loadingActions[showCancelDialog] && (
+                    <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                  )}
+                  {loadingActions[showCancelDialog] ? '취소 중...' : '확인'}
+                </button>
+                <button
+                  onClick={() => setShowCancelDialog(null)}
+                  disabled={loadingActions[showCancelDialog]}
+                  className="flex-1 bg-gray-300 hover:bg-gray-400 disabled:bg-gray-300/50 text-gray-700 font-medium py-2 px-4 rounded-lg text-sm transition-colors duration-200"
+                >
+                  아니요
+                </button>
+              </div>
             </div>
           </div>
         )}

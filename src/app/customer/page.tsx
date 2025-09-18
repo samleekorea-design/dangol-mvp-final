@@ -30,7 +30,7 @@ function CustomerPageContent() {
   const searchParams = useSearchParams()
   const [deals, setDeals] = useState<Deal[]>([])
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null)
-  const [radius, setRadius] = useState(1000)
+  const [radius, setRadius] = useState<number | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [errors, setErrors] = useState<string[]>([])
   const [deviceId, setDeviceId] = useState<string>('')
@@ -195,7 +195,7 @@ function CustomerPageContent() {
           }
           console.log('📍 CustomerPage: Geolocation success, new location:', newLocation)
           setLocation(newLocation)
-          fetchDeals(newLocation.lat, newLocation.lng, radius)
+          fetchDeals(newLocation.lat, newLocation.lng, radius || 9999)
         },
         (error) => {
           console.error('❌ CustomerPage: Geolocation error:', error)
@@ -206,7 +206,7 @@ function CustomerPageContent() {
           }
           console.log('📍 CustomerPage: Using fallback location:', defaultLocation)
           setLocation(defaultLocation)
-          fetchDeals(defaultLocation.lat, defaultLocation.lng, radius)
+          fetchDeals(defaultLocation.lat, defaultLocation.lng, radius || 9999)
         },
         {
           timeout: 5000
@@ -295,7 +295,8 @@ function CustomerPageContent() {
   }
 
   const handleRadiusChange = (newRadius: number) => {
-    setRadius(newRadius)
+    const actualRadius = newRadius >= 9999 ? null : newRadius
+    setRadius(actualRadius)
     if (location) {
       fetchDeals(location.lat, location.lng, newRadius)
     }
@@ -343,7 +344,7 @@ function CustomerPageContent() {
         )
         // Refresh deals to update current_claims and claimed status
         if (location) {
-          fetchDeals(location.lat, location.lng, radius)
+          fetchDeals(location.lat, location.lng, radius || 9999)
         }
       } else {
         // Handle specific error cases
@@ -488,6 +489,27 @@ function CustomerPageContent() {
     return new Date(claimExpiry + 'Z') <= new Date()
   }
 
+  const getClaimTimeRemaining = (claimExpiry?: string) => {
+    if (!claimExpiry) return { text: '', isUrgent: false, expired: true }
+
+    const now = new Date()
+    const expiryDate = new Date(claimExpiry + 'Z')
+    const timeDiff = expiryDate.getTime() - now.getTime()
+
+    if (timeDiff <= 0) {
+      return { text: '', isUrgent: false, expired: true }
+    }
+
+    const totalMinutes = Math.floor(timeDiff / (1000 * 60))
+
+    if (totalMinutes < 1) {
+      return { text: '곧 만료', isUrgent: true, expired: false }
+    }
+
+    const isUrgent = totalMinutes < 5
+    return { text: `${totalMinutes}분 남음`, isUrgent, expired: false }
+  }
+
   const detectiOS = () => {
     if (typeof navigator === 'undefined') return false
     return /iPad|iPhone|iPod/.test(navigator.userAgent)
@@ -581,20 +603,20 @@ function CustomerPageContent() {
 
           <div>
             <label className="block text-base font-light text-white mb-2">
-              검색 반경: {radius >= 9999 ? '전체' : `${radius}m`}
+              검색 반경: {radius === null ? '전체' : `${radius}m`}
             </label>
             <div className="grid grid-cols-3 gap-2">
-              {[200, 500, 9999].map((r) => (
+              {[200, 500, null].map((r) => (
                 <button
-                  key={r}
-                  onClick={() => handleRadiusChange(r)}
+                  key={r || 'all'}
+                  onClick={() => handleRadiusChange(r || 9999)}
                   className={`w-full px-4 py-3 rounded-lg text-base font-light transition-all duration-300 min-h-[48px] flex items-center justify-center ${
                     radius === r
                       ? 'bg-white text-blue-600'
                       : 'bg-white/20 text-white hover:bg-white/30'
                   }`}
                 >
-                  {r >= 9999 ? '1000m+' : `${r}m`}
+                  {r === null ? '전체' : `${r}m`}
                 </button>
               ))}
             </div>
@@ -614,7 +636,7 @@ function CustomerPageContent() {
         {/* Refresh Button */}
         <div className="mb-6 w-full">
           <button
-            onClick={() => location && fetchDeals(location.lat, location.lng, radius)}
+            onClick={() => location && fetchDeals(location.lat, location.lng, radius || 9999)}
             disabled={!location || isLoading}
             className={`w-full px-6 py-4 rounded-lg text-lg font-light transition-all duration-300 flex items-center justify-center gap-2 min-h-[48px] ${
               location && !isLoading
@@ -709,23 +731,46 @@ function CustomerPageContent() {
                         </button>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                      </svg>
-                      <p>남은 수량: {deal.max_claims - deal.current_claims} / {deal.max_claims}</p>
-                    </div>
-                    <div className="flex items-start gap-2">
-                      <svg className="w-4 h-4 text-gray-400 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      <div>
-                        <p>{formatKoreanDateTime(deal.expires_at)}</p>
-                        <p className={`font-medium ${getTimeRemaining(deal.expires_at).isUrgent ? 'text-red-600' : 'text-gray-700'}`}>
-                          {getTimeRemaining(deal.expires_at).text}
-                        </p>
+                    {!deal.claimed && (
+                      <div className="flex items-center gap-2">
+                        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        </svg>
+                        <p>남은 수량: {deal.max_claims - deal.current_claims} / {deal.max_claims}</p>
                       </div>
-                    </div>
+                    )}
+                    {deal.claimed && !isClaimExpired(deal.claimExpiry) ? (
+                      <div className="flex items-start gap-2">
+                        <svg className="w-4 h-4 text-gray-400 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <div>
+                          {(() => {
+                            const timeRemaining = getClaimTimeRemaining(deal.claimExpiry)
+                            if (!timeRemaining.expired) {
+                              return (
+                                <p className={`font-medium ${timeRemaining.isUrgent ? 'text-red-600' : 'text-gray-700'}`}>
+                                  사용까지 남은 시간: {timeRemaining.text}
+                                </p>
+                              )
+                            }
+                            return null
+                          })()}
+                        </div>
+                      </div>
+                    ) : !deal.claimed ? (
+                      <div className="flex items-start gap-2">
+                        <svg className="w-4 h-4 text-gray-400 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <div>
+                          <p>{formatKoreanDateTime(deal.expires_at)}</p>
+                          <p className={`font-medium ${getTimeRemaining(deal.expires_at).isUrgent ? 'text-red-600' : 'text-gray-700'}`}>
+                            {getTimeRemaining(deal.expires_at).text}
+                          </p>
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
                 </div>
 
