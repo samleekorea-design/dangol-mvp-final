@@ -15,12 +15,15 @@ export default function MerchantScanPage() {
   const router = useRouter()
   const videoRef = useRef<HTMLVideoElement>(null)
   const readerRef = useRef<BrowserQRCodeReader | null>(null)
+  const decodingControlsRef = useRef<any>(null)
   const [scanStatus, setScanStatus] = useState<ScanStatus>('ready')
   const [scanResult, setScanResult] = useState<ScanResult | null>(null)
   const [manualCode, setManualCode] = useState('')
   const [cameraStarted, setCameraStarted] = useState(false)
   const [isMerchantLoggedIn, setIsMerchantLoggedIn] = useState(false)
   const resetTimeoutRef = useRef<NodeJS.Timeout>()
+  const isProcessingRef = useRef(false)
+  const lastScanTimeRef = useRef(0)
 
   useEffect(() => {
     // Check if merchant is logged in (client-side only)
@@ -55,16 +58,23 @@ export default function MerchantScanPage() {
       }
 
       if (videoRef.current) {
-        await readerRef.current.decodeFromVideoDevice(
+        const controls = await readerRef.current.decodeFromVideoDevice(
           undefined, // Use default camera
           videoRef.current,
-          (result, error) => {
-            if (result && scanStatus === 'ready') {
-              const code = result.getText()
-              processCode(code)
-            }
-          }
+(result, error) => {
+  if (result && !isProcessingRef.current) {
+    const now = Date.now()
+    // Enforce 2-second minimum between scans
+    if (now - lastScanTimeRef.current < 2000) return
+
+    isProcessingRef.current = true
+    lastScanTimeRef.current = now
+    const code = result.getText()
+    processCode(code)
+  }
+}
         )
+        decodingControlsRef.current = controls
         setCameraStarted(true)
         setScanStatus('ready')
       }
@@ -76,19 +86,48 @@ export default function MerchantScanPage() {
   }
 
   const stopCamera = () => {
-    if (readerRef.current && typeof readerRef.current.stopContinuousDecode === 'function') {
-      readerRef.current.stopContinuousDecode()
-    } else if (readerRef.current && typeof readerRef.current.stop === 'function') {
-      readerRef.current.stop()
+    // Stop decoding controls
+    if (decodingControlsRef.current) {
+      try {
+        decodingControlsRef.current.stop()
+      } catch (error) {
+        console.error('Error stopping decoding controls:', error)
+      }
     }
-    
-    // Stop all video tracks to properly release the camera
+
+    // Aggressively stop reader with all available methods
+    if (readerRef.current) {
+      try {
+        readerRef.current.stopContinuousDecode()
+      } catch (error) {
+        console.error('Error calling stopContinuousDecode:', error)
+      }
+
+      try {
+        readerRef.current.stop()
+      } catch (error) {
+        console.error('Error calling stop:', error)
+      }
+
+      try {
+        readerRef.current.reset()
+      } catch (error) {
+        console.error('Error calling reset:', error)
+      }
+
+      // Force complete recreation
+      readerRef.current = null
+    }
+
+    // Stop all video tracks
     if (videoRef.current && videoRef.current.srcObject) {
       const stream = videoRef.current.srcObject as MediaStream
       stream.getTracks().forEach(track => track.stop())
       videoRef.current.srcObject = null
     }
-    
+
+    // Clear all refs and state
+    decodingControlsRef.current = null
     setCameraStarted(false)
   }
 
@@ -96,9 +135,10 @@ export default function MerchantScanPage() {
     setScanStatus('ready')
     setScanResult(null)
     setManualCode('')
-    if (!cameraStarted) {
-      startCamera()
-    }
+  // Don't auto-restart camera - user must tap to start again
+  // if (!cameraStarted) {
+  //   startCamera()
+  // }
   }
 
   const processCode = async (code: string) => {
@@ -125,6 +165,7 @@ export default function MerchantScanPage() {
 
       if (data.success) {
         setScanStatus('success')
+        stopCamera()
         setScanResult({
           message: '사용 완료!',
           dealTitle: data.deal?.title
@@ -134,13 +175,20 @@ export default function MerchantScanPage() {
         setScanResult({ 
           message: data.error || '코드 처리 실패' 
         })
+        stopCamera()  // ADD THIS LINE - stop camera on error too
       }
     } catch (error) {
       setScanStatus('error')
       setScanResult({ 
         message: '네트워크 오류가 발생했습니다' 
       })
-    }
+      stopCamera()  // ADD THIS LINE - stop camera on network error too
+    } finally {
+  // Reset the processing flag after 2 seconds
+  setTimeout(() => {
+    isProcessingRef.current = false
+  }, 2000)
+}
   }
 
   const handleManualSubmit = (e: React.FormEvent) => {
@@ -241,6 +289,15 @@ export default function MerchantScanPage() {
                   <div className="absolute -bottom-1 -left-1 w-8 h-8 border-b-4 border-l-4 border-white rounded-bl-lg"></div>
                   <div className="absolute -bottom-1 -right-1 w-8 h-8 border-b-4 border-r-4 border-white rounded-br-lg"></div>
                 </div>
+                {/* Camera Restart Button */}
+                {scanStatus === 'ready' && !cameraStarted && (
+                  <button
+                    onClick={startCamera}
+                    className="absolute inset-0 m-auto w-32 h-12 bg-white text-gray-900 font-bold rounded-lg shadow-lg hover:bg-gray-100 transition-colors"
+                  >
+                    다시 스캔하기
+                  </button>
+                )}
               </div>
               <p className="text-center text-gray-700 mt-4 text-lg font-medium">
                 고객의 QR 코드를 중앙에 맞춰주세요

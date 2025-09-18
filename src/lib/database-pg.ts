@@ -811,7 +811,6 @@ if (databaseUrl) {
           JOIN merchants m ON d.merchant_id = m.id
           WHERE c.device_id = $1 AND c.status != 'cancelled'
           AND c.expires_at > NOW()
-          AND c.redeemed_at IS NULL
           ORDER BY c.claimed_at DESC
         `, [deviceId]);
         

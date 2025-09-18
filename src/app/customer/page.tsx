@@ -22,6 +22,7 @@ interface Deal {
   claimed?: boolean
   claimCode?: string
   claimExpiry?: string
+  redeemed?: boolean
 }
 
 function CustomerPageContent() {
@@ -30,11 +31,11 @@ function CustomerPageContent() {
   const searchParams = useSearchParams()
   const [deals, setDeals] = useState<Deal[]>([])
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null)
-  const [radius, setRadius] = useState<number | null>(null)
+  const [radius, setRadius] = useState<number | null>(9999)
   const [isLoading, setIsLoading] = useState(false)
   const [errors, setErrors] = useState<string[]>([])
   const [deviceId, setDeviceId] = useState<string>('')
-  const [claimedDeals, setClaimedDeals] = useState<Record<number, {code: string, expiry: string}>>({})
+  const [claimedDeals, setClaimedDeals] = useState<Record<number, {code: string, expiry: string, redeemed?: boolean}>>({})
   const [updateCounter, setUpdateCounter] = useState(0)
 
   // Dynamic time updates - refresh every 60 seconds
@@ -137,11 +138,11 @@ function CustomerPageContent() {
       try {
         console.log('Checking notification permission...')
         const hasPermission = await requestNotificationPermission()
-        
+
         if (hasPermission) {
           console.log('Notification permission granted, generating FCM token...')
           const fcmToken = await getFCMToken()
-          
+
           if (fcmToken) {
             console.log('FCM Token:', fcmToken)
             console.log('FCM token generated successfully, making API call...')
@@ -150,15 +151,15 @@ function CustomerPageContent() {
               headers: {
                 'Content-Type': 'application/json',
               },
-              body: JSON.stringify({ 
-                deviceId: deviceId, 
-                subscription: { 
-                  endpoint: 'FCM', 
-                  keys: { 
-                    auth: fcmToken, 
-                    p256dh: 'FCM' 
-                  } 
-                } 
+              body: JSON.stringify({
+                deviceId: deviceId,
+                subscription: {
+                  endpoint: 'FCM',
+                  keys: {
+                    auth: fcmToken,
+                    p256dh: 'FCM'
+                  }
+                }
               }),
             })
 
@@ -234,11 +235,12 @@ function CustomerPageContent() {
       if (data.success) {
         console.log('✅ CustomerPage: Successfully fetched', data.claimedDeals.length, 'claimed deals')
         // Convert server data to match our localStorage format
-        const claimedDealsMap: {[dealId: number]: {code: string, expiry: string}} = {}
+        const claimedDealsMap: {[dealId: number]: {code: string, expiry: string, redeemed?: boolean}} = {}
         data.claimedDeals.forEach((claim: any) => {
           claimedDealsMap[claim.dealId] = {
             code: claim.claimCode,
-            expiry: claim.expiresAt
+            expiry: claim.expiresAt,
+            redeemed: !!claim.redeemedAt
           }
         })
         
@@ -280,7 +282,8 @@ function CustomerPageContent() {
           ...deal,
           claimed: !!allClaimedDeals[deal.id],
           claimCode: allClaimedDeals[deal.id]?.code,
-          claimExpiry: allClaimedDeals[deal.id]?.expiry
+          claimExpiry: allClaimedDeals[deal.id]?.expiry,
+          redeemed: allClaimedDeals[deal.id]?.redeemed
         }))
         setDeals(dealsWithClaimedStatus.sort((a: any, b: any) => new Date(a.expires_at).getTime() - new Date(b.expires_at).getTime()))
       } else {
@@ -493,7 +496,10 @@ function CustomerPageContent() {
     if (!claimExpiry) return { text: '', isUrgent: false, expired: true }
 
     const now = new Date()
-    const expiryDate = new Date(claimExpiry + 'Z')
+    let expiryDate = new Date(claimExpiry)
+    if (isNaN(expiryDate.getTime())) {
+      expiryDate = new Date(claimExpiry + 'Z')
+    }
     const timeDiff = expiryDate.getTime() - now.getTime()
 
     if (timeDiff <= 0) {
@@ -750,7 +756,7 @@ function CustomerPageContent() {
                             if (!timeRemaining.expired) {
                               return (
                                 <p className={`font-medium ${timeRemaining.isUrgent ? 'text-red-600' : 'text-gray-700'}`}>
-                                  사용까지 남은 시간: {timeRemaining.text}
+                                  혜택 사용가능 시간: {timeRemaining.text}
                                 </p>
                               )
                             }
@@ -823,12 +829,16 @@ function CustomerPageContent() {
                       onClick={() => claimDeal(deal.id)}
                       disabled={!isClaimAvailable(deal) || deal.claimed}
                       className={`px-6 py-4 rounded-lg text-lg font-medium transition-all duration-300 min-h-[48px] ${
-                        isClaimAvailable(deal) && !deal.claimed
+                        deal.redeemed
+                          ? 'bg-gray-400 text-white cursor-not-allowed'
+                          : isClaimAvailable(deal) && !deal.claimed
                           ? 'bg-blue-600 text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 shadow-sm'
+                          : deal.claimed
+                          ? 'bg-blue-500 text-white cursor-not-allowed'
                           : 'bg-gray-100 text-gray-400 cursor-not-allowed'
                       }`}
                     >
-                      {deal.claimed ? '이미 받음' : isClaimAvailable(deal) ? '혜택 받기' : isSoldOut ? '완판' : '사용불가'}
+                      {deal.redeemed ? '혜택 사용 완료' : deal.claimed ? '이미 받음' : isClaimAvailable(deal) ? '혜택 받기' : isSoldOut ? '완판' : '사용불가'}
                     </button>
                   )}
                 </div>
