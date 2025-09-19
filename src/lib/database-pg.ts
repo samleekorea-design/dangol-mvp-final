@@ -541,17 +541,39 @@ if (databaseUrl) {
   async getMerchantDeals(merchantId: number): Promise<Deal[]> {
     try {
       const client = await this.pool.connect();
-      
+
       try {
         const result = await client.query(`
-          SELECT d.*, m.business_name as merchant_name, m.address as merchant_address 
-          FROM deals d 
-          JOIN merchants m ON d.merchant_id = m.id 
+          SELECT d.*,
+                 m.business_name as merchant_name,
+                 m.address as merchant_address,
+                 COALESCE(redeemed_counts.redeemed_count, 0) as redeemed_count,
+                 COALESCE(expired_claims.expired_pending_claims, 0) as expired_pending_claims
+          FROM deals d
+          JOIN merchants m ON d.merchant_id = m.id
+          LEFT JOIN (
+            SELECT deal_id, COUNT(*) as redeemed_count
+            FROM claims
+            WHERE redeemed_at IS NOT NULL
+            GROUP BY deal_id
+          ) redeemed_counts ON d.id = redeemed_counts.deal_id
+          LEFT JOIN (
+            SELECT deal_id, COUNT(*) as expired_pending_claims
+            FROM claims
+            WHERE expires_at < NOW() AND status = 'pending'
+            GROUP BY deal_id
+          ) expired_claims ON d.id = expired_claims.deal_id
           WHERE d.merchant_id = $1
           ORDER BY d.created_at DESC
         `, [merchantId]);
-        
-        return result.rows;
+
+        // Calculate current_claims by subtracting expired pending claims
+        const dealsWithAdjustedClaims = result.rows.map(deal => ({
+          ...deal,
+          current_claims: deal.current_claims - (deal.expired_pending_claims || 0)
+        }));
+
+        return dealsWithAdjustedClaims;
       } finally {
         client.release();
       }
@@ -561,27 +583,77 @@ if (databaseUrl) {
     }
   }
 
-  async getActiveDealsNearLocation(lat: number, lng: number, radiusMeters: number = 200): Promise<Deal[]> {
+  async getActiveDealsNearLocation(lat: number, lng: number, radiusMeters: number = 200, deviceId?: string): Promise<Deal[]> {
     try {
       const latRange = radiusMeters / 111000;
       const lngRange = radiusMeters / (111000 * Math.cos(lat * Math.PI / 180));
 
       const client = await this.pool.connect();
-      
+
       try {
-        const result = await client.query(`
-          SELECT d.*, m.business_name as merchant_name, m.address as merchant_address, m.latitude, m.longitude
-          FROM deals d 
-          JOIN merchants m ON d.merchant_id = m.id 
-          WHERE d.expires_at > NOW()
-          AND m.latitude BETWEEN $1 AND $2
-          AND m.longitude BETWEEN $3 AND $4
-        `, [
-          lat - latRange, lat + latRange,
-          lng - lngRange, lng + lngRange
-        ]);
-        
-        return result.rows;
+        let query: string;
+        let params: any[];
+
+        if (deviceId) {
+          // Include claimed deals for this device, even if expired
+          query = `
+            SELECT DISTINCT d.*, m.business_name as merchant_name, m.address as merchant_address, m.latitude, m.longitude,
+                   COALESCE(expired_claims.expired_pending_claims, 0) as expired_pending_claims
+            FROM deals d
+            JOIN merchants m ON d.merchant_id = m.id
+            LEFT JOIN claims c ON d.id = c.deal_id AND c.device_id = $5
+            LEFT JOIN (
+              SELECT deal_id, COUNT(*) as expired_pending_claims
+              FROM claims
+              WHERE expires_at < NOW() AND status = 'pending'
+              GROUP BY deal_id
+            ) expired_claims ON d.id = expired_claims.deal_id
+            WHERE (
+              (d.expires_at > NOW() AND d.status = 'confirmed' AND m.latitude BETWEEN $1 AND $2 AND m.longitude BETWEEN $3 AND $4)
+              OR
+              (c.id IS NOT NULL)
+            )
+            ORDER BY d.expires_at ASC
+          `;
+          params = [
+            lat - latRange, lat + latRange,
+            lng - lngRange, lng + lngRange,
+            deviceId
+          ];
+        } else {
+          // Original behavior without device ID
+          query = `
+            SELECT d.*, m.business_name as merchant_name, m.address as merchant_address, m.latitude, m.longitude,
+                   COALESCE(expired_claims.expired_pending_claims, 0) as expired_pending_claims
+            FROM deals d
+            JOIN merchants m ON d.merchant_id = m.id
+            LEFT JOIN (
+              SELECT deal_id, COUNT(*) as expired_pending_claims
+              FROM claims
+              WHERE expires_at < NOW() AND status = 'pending'
+              GROUP BY deal_id
+            ) expired_claims ON d.id = expired_claims.deal_id
+            WHERE d.expires_at > NOW()
+            AND d.status = 'confirmed'
+            AND m.latitude BETWEEN $1 AND $2
+            AND m.longitude BETWEEN $3 AND $4
+            ORDER BY d.expires_at ASC
+          `;
+          params = [
+            lat - latRange, lat + latRange,
+            lng - lngRange, lng + lngRange
+          ];
+        }
+
+        const result = await client.query(query, params);
+
+        // Calculate current_claims by subtracting expired pending claims
+        const dealsWithAdjustedClaims = result.rows.map(deal => ({
+          ...deal,
+          current_claims: deal.current_claims - (deal.expired_pending_claims || 0)
+        }));
+
+        return dealsWithAdjustedClaims;
       } finally {
         client.release();
       }
@@ -617,21 +689,64 @@ if (databaseUrl) {
     }
   }
 
-  async getAllActiveDeals(): Promise<Deal[]> {
+  async getAllActiveDeals(deviceId?: string): Promise<Deal[]> {
     try {
       const client = await this.pool.connect();
-      
+
       try {
-        const result = await client.query(`
-          SELECT d.*, m.business_name as merchant_name, m.address as merchant_address, m.latitude, m.longitude
-          FROM deals d 
-          JOIN merchants m ON d.merchant_id = m.id 
-          WHERE d.expires_at > NOW()
-          AND d.status = 'confirmed'
-          ORDER BY d.expires_at ASC
-        `);
-        
-        return result.rows;
+        let query: string;
+        let params: any[] = [];
+
+        if (deviceId) {
+          // Include claimed deals for this device, even if expired
+          query = `
+            SELECT DISTINCT d.*, m.business_name as merchant_name, m.address as merchant_address, m.latitude, m.longitude,
+                   COALESCE(expired_claims.expired_pending_claims, 0) as expired_pending_claims
+            FROM deals d
+            JOIN merchants m ON d.merchant_id = m.id
+            LEFT JOIN claims c ON d.id = c.deal_id AND c.device_id = $1
+            LEFT JOIN (
+              SELECT deal_id, COUNT(*) as expired_pending_claims
+              FROM claims
+              WHERE expires_at < NOW() AND status = 'pending'
+              GROUP BY deal_id
+            ) expired_claims ON d.id = expired_claims.deal_id
+            WHERE (
+              (d.expires_at > NOW() AND d.status = 'confirmed')
+              OR
+              (c.id IS NOT NULL)
+            )
+            ORDER BY d.expires_at ASC
+          `;
+          params = [deviceId];
+        } else {
+          // Original behavior without device ID
+          query = `
+            SELECT d.*, m.business_name as merchant_name, m.address as merchant_address, m.latitude, m.longitude,
+                   COALESCE(expired_claims.expired_pending_claims, 0) as expired_pending_claims
+            FROM deals d
+            JOIN merchants m ON d.merchant_id = m.id
+            LEFT JOIN (
+              SELECT deal_id, COUNT(*) as expired_pending_claims
+              FROM claims
+              WHERE expires_at < NOW() AND status = 'pending'
+              GROUP BY deal_id
+            ) expired_claims ON d.id = expired_claims.deal_id
+            WHERE d.expires_at > NOW()
+            AND d.status = 'confirmed'
+            ORDER BY d.expires_at ASC
+          `;
+        }
+
+        const result = await client.query(query, params);
+
+        // Calculate current_claims by subtracting expired pending claims
+        const dealsWithAdjustedClaims = result.rows.map(deal => ({
+          ...deal,
+          current_claims: deal.current_claims - (deal.expired_pending_claims || 0)
+        }));
+
+        return dealsWithAdjustedClaims;
       } finally {
         client.release();
       }
@@ -810,7 +925,6 @@ if (databaseUrl) {
           JOIN deals d ON c.deal_id = d.id
           JOIN merchants m ON d.merchant_id = m.id
           WHERE c.device_id = $1 AND c.status != 'cancelled'
-          AND c.expires_at > NOW()
           ORDER BY c.claimed_at DESC
         `, [deviceId]);
         

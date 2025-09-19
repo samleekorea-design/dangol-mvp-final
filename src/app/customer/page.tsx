@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { RefreshCw } from 'lucide-react'
+import { RefreshCw, ChevronUp, ChevronDown } from 'lucide-react'
 import { deviceFingerprint } from '@/lib/deviceFingerprint'
 import { getKoreanTime, formatKoreanTime, isDealExpired } from '@/lib/timezoneUtils'
 import { requestNotificationPermission, getFCMToken } from '@/lib/firebase-client'
@@ -23,6 +23,8 @@ interface Deal {
   claimCode?: string
   claimExpiry?: string
   redeemed?: boolean
+  redeemedAt?: string
+  claimedAt?: string
 }
 
 function CustomerPageContent() {
@@ -35,8 +37,9 @@ function CustomerPageContent() {
   const [isLoading, setIsLoading] = useState(false)
   const [errors, setErrors] = useState<string[]>([])
   const [deviceId, setDeviceId] = useState<string>('')
-  const [claimedDeals, setClaimedDeals] = useState<Record<number, {code: string, expiry: string, redeemed?: boolean}>>({})
+  const [claimedDeals, setClaimedDeals] = useState<Record<number, {code: string, expiry: string, claimedAt?: string, redeemed?: boolean, redeemedAt?: string}>>({})
   const [updateCounter, setUpdateCounter] = useState(0)
+  const [showRecentHistory, setShowRecentHistory] = useState(false)
 
   // Dynamic time updates - refresh every 60 seconds
   useEffect(() => {
@@ -127,6 +130,14 @@ function CustomerPageContent() {
     }
   }, [deviceId])
 
+  // Fetch deals when both location and deviceId are ready
+  useEffect(() => {
+    if (location && deviceId) {
+      console.log('🎯 CustomerPage: Both location and deviceId ready, fetching deals')
+      fetchDeals(location.lat, location.lng, radius || 9999)
+    }
+  }, [location, deviceId, radius])
+
   // Handle FCM subscription
   useEffect(() => {
     const handleFCMSubscription = async () => {
@@ -196,7 +207,6 @@ function CustomerPageContent() {
           }
           console.log('📍 CustomerPage: Geolocation success, new location:', newLocation)
           setLocation(newLocation)
-          fetchDeals(newLocation.lat, newLocation.lng, radius || 9999)
         },
         (error) => {
           console.error('❌ CustomerPage: Geolocation error:', error)
@@ -207,7 +217,6 @@ function CustomerPageContent() {
           }
           console.log('📍 CustomerPage: Using fallback location:', defaultLocation)
           setLocation(defaultLocation)
-          fetchDeals(defaultLocation.lat, defaultLocation.lng, radius || 9999)
         },
         {
           timeout: 5000
@@ -222,7 +231,6 @@ function CustomerPageContent() {
       }
       console.log('📍 CustomerPage: Using fallback location:', defaultLocation)
       setLocation(defaultLocation)
-      fetchDeals(defaultLocation.lat, defaultLocation.lng, radius)
     }
   }
 
@@ -235,12 +243,14 @@ function CustomerPageContent() {
       if (data.success) {
         console.log('✅ CustomerPage: Successfully fetched', data.claimedDeals.length, 'claimed deals')
         // Convert server data to match our localStorage format
-        const claimedDealsMap: {[dealId: number]: {code: string, expiry: string, redeemed?: boolean}} = {}
+        const claimedDealsMap: {[dealId: number]: {code: string, expiry: string, claimedAt?: string, redeemed?: boolean, redeemedAt?: string}} = {}
         data.claimedDeals.forEach((claim: any) => {
           claimedDealsMap[claim.dealId] = {
             code: claim.claimCode,
             expiry: claim.expiresAt,
-            redeemed: !!claim.redeemedAt
+            claimedAt: claim.claimedAt,
+            redeemed: !!claim.redeemedAt,
+            redeemedAt: claim.redeemedAt
           }
         })
         
@@ -265,8 +275,9 @@ function CustomerPageContent() {
     setIsLoading(true)
     try {
       // Fetch both deals and claimed deals in parallel
+      const dealsUrl = `/api/customers/deals?lat=${lat}&lng=${lng}&radius=${searchRadius}${deviceId ? `&deviceId=${deviceId}` : ''}`
       const [dealsResponse, serverClaimedDeals] = await Promise.all([
-        fetch(`/api/customers/deals?lat=${lat}&lng=${lng}&radius=${searchRadius}`),
+        fetch(dealsUrl),
         deviceId ? fetchClaimedDeals(deviceId) : Promise.resolve({})
       ])
       
@@ -283,7 +294,9 @@ function CustomerPageContent() {
           claimed: !!allClaimedDeals[deal.id],
           claimCode: allClaimedDeals[deal.id]?.code,
           claimExpiry: allClaimedDeals[deal.id]?.expiry,
-          redeemed: allClaimedDeals[deal.id]?.redeemed
+          claimedAt: allClaimedDeals[deal.id]?.claimedAt,
+          redeemed: allClaimedDeals[deal.id]?.redeemed,
+          redeemedAt: allClaimedDeals[deal.id]?.redeemedAt
         }))
         setDeals(dealsWithClaimedStatus.sort((a: any, b: any) => new Date(a.expires_at).getTime() - new Date(b.expires_at).getTime()))
       } else {
@@ -300,7 +313,7 @@ function CustomerPageContent() {
   const handleRadiusChange = (newRadius: number) => {
     const actualRadius = newRadius >= 9999 ? null : newRadius
     setRadius(actualRadius)
-    if (location) {
+    if (location && deviceId) {
       fetchDeals(location.lat, location.lng, newRadius)
     }
   }
@@ -346,7 +359,7 @@ function CustomerPageContent() {
           )
         )
         // Refresh deals to update current_claims and claimed status
-        if (location) {
+        if (location && deviceId) {
           fetchDeals(location.lat, location.lng, radius || 9999)
         }
       } else {
@@ -366,6 +379,21 @@ function CustomerPageContent() {
     // All deals are stored as UTC, parse as UTC and format in Korean timezone
     const date = new Date(dateString)
     return formatKoreanTime(date)
+  }
+
+  const formatRedemptionTime = (dateString: string) => {
+    const date = new Date(dateString)
+    if (isNaN(date.getTime())) {
+      return '알 수 없음'
+    }
+
+    const year = date.getFullYear()
+    const month = (date.getMonth() + 1).toString().padStart(2, '0')
+    const day = date.getDate().toString().padStart(2, '0')
+    const hours = date.getHours().toString().padStart(2, '0')
+    const minutes = date.getMinutes().toString().padStart(2, '0')
+
+    return `${year}-${month}-${day} ${hours}:${minutes}`
   }
 
   const formatKoreanDateTime = (dateString: string) => {
@@ -489,7 +517,7 @@ function CustomerPageContent() {
 
   const isClaimExpired = (claimExpiry?: string) => {
     if (!claimExpiry) return false
-    return new Date(claimExpiry + 'Z') <= new Date()
+    return new Date(claimExpiry) <= new Date()
   }
 
   const getClaimTimeRemaining = (claimExpiry?: string) => {
@@ -570,6 +598,61 @@ function CustomerPageContent() {
     }
   }
 
+  // Helper function to check if a deal should be shown in main view
+  const shouldShowInMainView = (deal: Deal) => {
+    const now = new Date()
+    const today = now.toDateString()
+    const dealExpiryDate = new Date(deal.expires_at)
+
+    // Show if deal expires today or in the future
+    if (dealExpiryDate.toDateString() === today || dealExpiryDate > now) {
+      return true
+    }
+
+    // Show if deal was claimed today (check localStorage claimed deals)
+    if (deal.claimed && claimedDeals[deal.id]) {
+      const claimExpiryDate = new Date(claimedDeals[deal.id].expiry)
+      // Claim expiry is 30 minutes after claim time, so we can infer claim time
+      const claimTime = new Date(claimExpiryDate.getTime() - (30 * 60 * 1000))
+      if (claimTime.toDateString() === today) {
+        return true
+      }
+    }
+
+    return false
+  }
+
+  // Filter deals for main view
+  const visibleDeals = deals.filter(shouldShowInMainView)
+
+  // Categorize visible deals
+  const activeDeals = visibleDeals.filter(deal => !deal.claimed && !isExpired(deal))
+  const claimedTodayDeals = visibleDeals.filter(deal => {
+    if (!deal.claimed) return false
+
+    const today = new Date().toDateString()
+
+    // Check if deal was claimed today
+    if (deal.claimedAt && new Date(deal.claimedAt).toDateString() === today) {
+      return true
+    }
+
+    // Check if deal was redeemed today
+    if (deal.redeemedAt && new Date(deal.redeemedAt).toDateString() === today) {
+      return true
+    }
+
+    // Check if claim expired today (fallback for old claims without claimedAt)
+    if (claimedDeals[deal.id] && claimedDeals[deal.id].expiry) {
+      const claimExpiryDate = new Date(claimedDeals[deal.id].expiry)
+      if (claimExpiryDate.toDateString() === today) {
+        return true
+      }
+    }
+
+    return false
+  })
+
   return (
     <div className="min-h-screen bg-[radial-gradient(ellipse_at_top_left,_#65BBFF_0%,_#3A82FF_25%,_#2570EA_50%,_#1857C7_100%)]">
       
@@ -642,10 +725,10 @@ function CustomerPageContent() {
         {/* Refresh Button */}
         <div className="mb-6 w-full">
           <button
-            onClick={() => location && fetchDeals(location.lat, location.lng, radius || 9999)}
-            disabled={!location || isLoading}
+            onClick={() => location && deviceId && fetchDeals(location.lat, location.lng, radius || 9999)}
+            disabled={!location || !deviceId || isLoading}
             className={`w-full px-6 py-4 rounded-lg text-lg font-light transition-all duration-300 flex items-center justify-center gap-2 min-h-[48px] ${
-              location && !isLoading
+              location && deviceId && !isLoading
                 ? 'bg-blue-100/50 text-white hover:bg-white/30 active:scale-95'
                 : 'bg-blue-100/20 text-white/50 cursor-not-allowed'
             }`}
@@ -674,46 +757,53 @@ function CustomerPageContent() {
 
         {/* Deals List */}
         <div className="w-full">
-          {!isLoading && deals.length === 0 && (
+          {!isLoading && visibleDeals.length === 0 && (
             <div className="text-center py-8 text-white/80">
               <p className="text-xl mb-2 font-light">찾은 혜택이 없습니다</p>
               <p className="text-base">검색 반경을 늘리거나 나중에 다시 확인해 보세요</p>
             </div>
           )}
 
-          <div className="space-y-4">
-            {deals.map((deal) => {
+          {/* Today's Active Deals Section */}
+          {activeDeals.length > 0 && (
+            <div className="mb-8">
+              <h2 className="text-xl font-bold text-white mb-4 px-2">🔥 오늘의 혜택</h2>
+              <div className="space-y-4">
+                {activeDeals.map((deal) => {
               const isSoldOut = deal.current_claims >= deal.max_claims && !deal.claimed
               return (
-                <div key={deal.id} className={`bg-white rounded-xl border border-gray-200 p-6 shadow-sm relative ${deal.claimed ? 'opacity-70' : ''} ${isSoldOut ? 'opacity-60' : ''}`}>
-                {deal.claimed && (
+                <div key={deal.id} className={`bg-white rounded-xl border border-gray-200 p-6 shadow-sm relative ${deal.claimed ? 'opacity-70' : ''} ${deal.redeemed ? 'opacity-60' : ''} ${isSoldOut ? 'opacity-60' : ''}`}>
+                {/* Status badge - top right */}
+                {deal.redeemed ? (
+                  <div className="absolute top-3 right-3 bg-gray-500 text-white text-xs font-medium px-2 py-1 rounded-full z-10">
+                    사용완료
+                  </div>
+                ) : deal.claimed && isClaimExpired(deal.claimExpiry) ? (
+                  <div className="absolute top-3 right-3 bg-red-500 text-white text-xs font-medium px-2 py-1 rounded-full z-10">
+                    기간만료
+                  </div>
+                ) : deal.claimed ? (
                   <div className="absolute top-3 right-3 bg-green-500 text-white text-xs font-medium px-2 py-1 rounded-full z-10">
                     받음
                   </div>
-                )}
-                {isSoldOut && (
-                  <div className="absolute top-3 right-3 bg-red-500 text-white text-xs font-medium px-2 py-1 rounded-full z-10">
+                ) : isSoldOut ? (
+                  <div className="absolute top-3 right-3 bg-orange-500 text-white text-xs font-medium px-2 py-1 rounded-full z-10">
                     완판
                   </div>
-                )}
-                <div className="mb-4">
-                  <div className="flex items-start gap-3 mb-3">
-                    {/* Icon Circle */}
-                    <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
-                      <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 4V2a1 1 0 011-1h8a1 1 0 011 1v2m3 0H4a1 1 0 00-1 1v14a1 1 0 001 1h16a1 1 0 001-1V5a1 1 0 00-1-1z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4" />
-                      </svg>
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="text-xl font-medium text-gray-900 mb-1">
-                        {deal.title}
-                      </h3>
-                      <p className="text-base text-gray-600 mb-2 line-clamp-3">{deal.description}</p>
-                    </div>
+                ) : isClaimAvailable(deal) ? (
+                  <div className="absolute top-3 right-3 bg-blue-500 text-white text-xs font-medium px-2 py-1 rounded-full z-10">
+                    사용가능
                   </div>
-                  
-                  <div className="text-base text-gray-500 space-y-1 pl-13">
+                ) : null}
+                <div className="mb-4">
+                  <div className="mb-3">
+                    <h3 className="text-xl font-medium text-gray-900 mb-1">
+                      {deal.title}
+                    </h3>
+                    <p className="text-base text-gray-600 mb-2 line-clamp-3">{deal.description}</p>
+                  </div>
+
+                  <div className="text-base text-gray-500 space-y-1">
                     <div className="flex items-center gap-2">
                       <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-4m-5 0H3m2 0h2M7 16h6M7 8h6v4H7V8z" />
@@ -745,7 +835,18 @@ function CustomerPageContent() {
                         <p>남은 수량: {deal.max_claims - deal.current_claims} / {deal.max_claims}</p>
                       </div>
                     )}
-                    {deal.claimed && !isClaimExpired(deal.claimExpiry) ? (
+                    {deal.redeemed ? (
+                      <div className="flex items-start gap-2">
+                        <svg className="w-4 h-4 text-gray-400 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <div>
+                          <p className="font-medium text-gray-700">
+                            혜택 사용 시간: {deal.redeemedAt ? formatRedemptionTime(deal.redeemedAt) : '알 수 없음'}
+                          </p>
+                        </div>
+                      </div>
+                    ) : deal.claimed && !isClaimExpired(deal.claimExpiry) ? (
                       <div className="flex items-start gap-2">
                         <svg className="w-4 h-4 text-gray-400 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -778,73 +879,249 @@ function CustomerPageContent() {
                       </div>
                     ) : null}
                   </div>
+                  {deal.claimed && !deal.redeemed && isClaimExpired(deal.claimExpiry) && (
+                    <div className="mt-2 border-t border-gray-100">
+                      <p className="text-base text-red-600 text-center font-medium bg-white border border-red-300 p-3 rounded-lg">받은 혜택의 사용가능 시간은 받은 후 30분입니다</p>
+                    </div>
+                  )}
                 </div>
 
-                <div className="flex justify-between items-center pt-4 border-t border-gray-100">
-                  <div>
-                    {deal.claimed && !isClaimExpired(deal.claimExpiry) && (
-                      <span className="inline-flex items-center px-3 py-2 rounded-full text-sm font-medium bg-purple-100 text-purple-700 border border-purple-200">
-                        받은 혜택
-                      </span>
-                    )}
-                    {deal.claimed && isClaimExpired(deal.claimExpiry) && (
-                      <span className="inline-flex items-center px-3 py-2 rounded-full text-sm font-medium bg-gray-100 text-gray-600 border border-gray-200">
-                        코드 만료
-                      </span>
-                    )}
-                    {!deal.claimed && isExpired(deal) && (
-                      <span className="inline-flex items-center px-3 py-2 rounded-full text-sm font-medium bg-red-100 text-red-700 border border-red-200">
-                        만료
-                      </span>
-                    )}
-                    {!deal.claimed && deal.current_claims >= deal.max_claims && !isExpired(deal) && (
-                      <span className="inline-flex items-center px-3 py-2 rounded-full text-sm font-medium bg-red-100 text-red-700 border border-red-200">
-                        완판
-                      </span>
-                    )}
-                    {!deal.claimed && isClaimAvailable(deal) && (
-                      <span className="inline-flex items-center px-3 py-2 rounded-full text-sm font-medium bg-green-100 text-green-700 border border-green-200">
-                        사용가능
-                      </span>
-                    )}
-                  </div>
-
-                  {deal.claimed ? (
-                    <div className="text-right">
-                      {isClaimExpired(deal.claimExpiry) && (
-                        <div className="text-sm font-medium text-red-600 mb-2">
-                          코드 만료
-                        </div>
-                      )}
-                      <button
-                        onClick={() => router.push(`/customer/redeem?dealId=${deal.id}&code=${claimedDeals[deal.id]?.code}&merchant=${encodeURIComponent(deal.merchant_name)}`)}
-                        className="bg-purple-600 hover:bg-purple-700 text-white font-medium px-6 py-3 rounded-lg text-lg transition-colors duration-200"
-                        disabled={isClaimExpired(deal.claimExpiry)}
-                      >
-                        혜택 코드 보기
-                      </button>
-                    </div>
-                  ) : (
+                <div className="flex justify-center items-center pt-4 border-t border-gray-100">
+                  {deal.claimed && !deal.redeemed && !isClaimExpired(deal.claimExpiry) ? (
+                    <button
+                      onClick={() => router.push(`/customer/redeem?dealId=${deal.id}&code=${claimedDeals[deal.id]?.code}&merchant=${encodeURIComponent(deal.merchant_name)}`)}
+                      className="w-full max-w-xs bg-purple-600 hover:bg-purple-700 text-white font-medium px-6 py-3 rounded-lg text-lg transition-colors duration-200"
+                    >
+                      혜택 코드 보기
+                    </button>
+                  ) : !deal.claimed && isClaimAvailable(deal) ? (
                     <button
                       onClick={() => claimDeal(deal.id)}
-                      disabled={!isClaimAvailable(deal) || deal.claimed}
-                      className={`px-6 py-4 rounded-lg text-lg font-medium transition-all duration-300 min-h-[48px] ${
-                        deal.redeemed
-                          ? 'bg-gray-400 text-white cursor-not-allowed'
-                          : isClaimAvailable(deal) && !deal.claimed
-                          ? 'bg-blue-600 text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 shadow-sm'
-                          : deal.claimed
-                          ? 'bg-blue-500 text-white cursor-not-allowed'
-                          : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                      }`}
+                      className="w-full max-w-xs bg-blue-600 text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 shadow-sm font-medium px-6 py-3 rounded-lg text-lg transition-colors duration-200"
                     >
-                      {deal.redeemed ? '혜택 사용 완료' : deal.claimed ? '이미 받음' : isClaimAvailable(deal) ? '혜택 받기' : isSoldOut ? '완판' : '사용불가'}
+                      혜택 받기
                     </button>
-                  )}
+                  ) : null}
                 </div>
               </div>
               )
             })}
+              </div>
+            </div>
+          )}
+
+          {/* Today's Claimed Deals Section */}
+          {claimedTodayDeals.length > 0 && (
+            <div className="mb-8">
+              <h2 className="text-xl font-bold text-white mb-4 px-2">✅ 오늘 받은 혜택</h2>
+              <div className="space-y-4">
+                {claimedTodayDeals.map((deal) => {
+              const isSoldOut = deal.current_claims >= deal.max_claims && !deal.claimed
+              return (
+                <div key={deal.id} className={`bg-white rounded-xl border border-gray-200 p-6 shadow-sm relative ${deal.claimed ? 'opacity-70' : ''} ${deal.redeemed ? 'opacity-60' : ''} ${isSoldOut ? 'opacity-60' : ''}`}>
+                {/* Status badge - top right */}
+                {deal.redeemed ? (
+                  <div className="absolute top-3 right-3 bg-gray-500 text-white text-xs font-medium px-2 py-1 rounded-full z-10">
+                    사용완료
+                  </div>
+                ) : deal.claimed && isClaimExpired(deal.claimExpiry) ? (
+                  <div className="absolute top-3 right-3 bg-red-500 text-white text-xs font-medium px-2 py-1 rounded-full z-10">
+                    기간만료
+                  </div>
+                ) : deal.claimed ? (
+                  <div className="absolute top-3 right-3 bg-green-500 text-white text-xs font-medium px-2 py-1 rounded-full z-10">
+                    받음
+                  </div>
+                ) : isSoldOut ? (
+                  <div className="absolute top-3 right-3 bg-orange-500 text-white text-xs font-medium px-2 py-1 rounded-full z-10">
+                    완판
+                  </div>
+                ) : isClaimAvailable(deal) ? (
+                  <div className="absolute top-3 right-3 bg-blue-500 text-white text-xs font-medium px-2 py-1 rounded-full z-10">
+                    사용가능
+                  </div>
+                ) : null}
+                <div className="mb-4">
+                  <div className="mb-3">
+                    <h3 className="text-xl font-medium text-gray-900 mb-1">
+                      {deal.title}
+                    </h3>
+                    <p className="text-base text-gray-600 mb-2 line-clamp-3">{deal.description}</p>
+                  </div>
+
+                  <div className="text-base text-gray-500 space-y-1">
+                    <div className="flex items-center gap-2">
+                      <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-4m-5 0H3m2 0h2M7 16h6M7 8h6v4H7V8z" />
+                      </svg>
+                      <p className="font-medium text-base text-gray-700">{deal.merchant_name}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        <p className="text-gray-600">{deal.merchant_address}</p>
+                      </div>
+                      <div className="ml-6">
+                        <button
+                          onClick={() => openMapLink(deal.merchant_address)}
+                          className="text-blue-400 text-sm underline hover:text-blue-500 transition-colors duration-200"
+                        >
+                          📍 지도에서 보기
+                        </button>
+                      </div>
+                    </div>
+                    {deal.redeemed ? (
+                      <div className="flex items-start gap-2">
+                        <svg className="w-4 h-4 text-gray-400 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <div>
+                          <p className="font-medium text-gray-700">
+                            혜택 사용 시간: {deal.redeemedAt ? formatRedemptionTime(deal.redeemedAt) : '알 수 없음'}
+                          </p>
+                        </div>
+                      </div>
+                    ) : deal.claimed && !isClaimExpired(deal.claimExpiry) ? (
+                      <div className="flex items-start gap-2">
+                        <svg className="w-4 h-4 text-gray-400 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <div>
+                          {(() => {
+                            const timeRemaining = getClaimTimeRemaining(deal.claimExpiry)
+                            if (!timeRemaining.expired) {
+                              return (
+                                <p className={`font-medium ${timeRemaining.isUrgent ? 'text-red-600' : 'text-gray-700'}`}>
+                                  혜택 사용가능 시간: {timeRemaining.text}
+                                </p>
+                              )
+                            }
+                            return null
+                          })()}
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                  {deal.claimed && !deal.redeemed && isClaimExpired(deal.claimExpiry) && (
+                    <div className="mt-3 pt-2 border-t border-gray-100">
+                      <p className="text-base text-red-600 text-center font-medium bg-white border border-red-300 p-3 rounded-lg">받은 혜택의 사용가능 시간은 받은 후 30분입니다</p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex justify-center items-center pt-4 border-t border-gray-100">
+                  {deal.claimed && !deal.redeemed && !isClaimExpired(deal.claimExpiry) ? (
+                    <button
+                      onClick={() => router.push(`/customer/redeem?dealId=${deal.id}&code=${claimedDeals[deal.id]?.code}&merchant=${encodeURIComponent(deal.merchant_name)}`)}
+                      className="w-full max-w-xs bg-purple-600 hover:bg-purple-700 text-white font-medium px-6 py-3 rounded-lg text-lg transition-colors duration-200"
+                    >
+                      혜택 코드 보기
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+              )
+            })}
+              </div>
+            </div>
+          )}
+
+          {/* Recent History Section */}
+          <div className="mb-8">
+            <button
+              onClick={() => setShowRecentHistory(!showRecentHistory)}
+              className="w-full flex items-center justify-between text-xl font-bold text-white mb-4 px-2 hover:text-white/80 transition-colors"
+            >
+              <span>📋 최근 사용한 혜택</span>
+              {showRecentHistory ? (
+                <ChevronUp className="w-6 h-6" />
+              ) : (
+                <ChevronDown className="w-6 h-6" />
+              )}
+            </button>
+
+            {showRecentHistory && (
+              <div className="space-y-4">
+                {deals.filter(deal => deal.claimed && deal.redeemed).sort((a, b) => new Date(b.redeemedAt || 0).getTime() - new Date(a.redeemedAt || 0).getTime()).map((deal) => {
+                  const isSoldOut = deal.current_claims >= deal.max_claims && !deal.claimed
+                  return (
+                    <div key={deal.id} className={`bg-white rounded-xl border border-gray-200 p-6 shadow-sm relative ${deal.claimed ? 'opacity-70' : ''} ${deal.redeemed ? 'opacity-60' : ''} ${isSoldOut ? 'opacity-60' : ''}`}>
+                      {/* Status badge - top right */}
+                      {deal.redeemed ? (
+                        <div className="absolute top-3 right-3 bg-gray-500 text-white text-xs font-medium px-2 py-1 rounded-full z-10">
+                          사용완료
+                        </div>
+                      ) : deal.claimed && isClaimExpired(deal.claimExpiry) ? (
+                        <div className="absolute top-3 right-3 bg-red-500 text-white text-xs font-medium px-2 py-1 rounded-full z-10">
+                          기간만료
+                        </div>
+                      ) : deal.claimed ? (
+                        <div className="absolute top-3 right-3 bg-green-500 text-white text-xs font-medium px-2 py-1 rounded-full z-10">
+                          받음
+                        </div>
+                      ) : isSoldOut ? (
+                        <div className="absolute top-3 right-3 bg-orange-500 text-white text-xs font-medium px-2 py-1 rounded-full z-10">
+                          완판
+                        </div>
+                      ) : isClaimAvailable(deal) ? (
+                        <div className="absolute top-3 right-3 bg-blue-500 text-white text-xs font-medium px-2 py-1 rounded-full z-10">
+                          사용가능
+                        </div>
+                      ) : null}
+                      <div className="mb-4">
+                        <div className="mb-3">
+                          <h3 className="text-xl font-medium text-gray-900 mb-1">
+                            {deal.title}
+                          </h3>
+                          <p className="text-base text-gray-600 mb-2 line-clamp-3">{deal.description}</p>
+                        </div>
+
+                        <div className="text-base text-gray-500 space-y-1">
+                          <div className="flex items-center gap-2">
+                            <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-4m-5 0H3m2 0h2M7 16h6M7 8h6v4H7V8z" />
+                            </svg>
+                            <p className="font-medium text-base text-gray-700">{deal.merchant_name}</p>
+                          </div>
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                              </svg>
+                              <p className="text-gray-600">{deal.merchant_address}</p>
+                            </div>
+                            <div className="ml-6">
+                              <button
+                                onClick={() => openMapLink(deal.merchant_address)}
+                                className="text-blue-400 text-sm underline hover:text-blue-500 transition-colors duration-200"
+                              >
+                                📍 지도에서 보기
+                              </button>
+                            </div>
+                          </div>
+                          {deal.redeemed ? (
+                            <div className="flex items-start gap-2">
+                              <svg className="w-4 h-4 text-gray-400 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              <div>
+                                <p className="font-medium text-gray-700">
+                                  혜택 사용 시간: {deal.redeemedAt ? formatRedemptionTime(deal.redeemedAt) : '알 수 없음'}
+                                </p>
+                              </div>
+                            </div>
+                          ) : null}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
         </div>
 

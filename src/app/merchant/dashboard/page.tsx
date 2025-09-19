@@ -13,6 +13,7 @@ interface Deal {
   max_claims: number
   current_claims: number
   created_at: string
+  redeemed_count?: number
 }
 
 export default function MerchantDashboard() {
@@ -775,7 +776,8 @@ export default function MerchantDashboard() {
                       </h3>
                       <p className="text-white/80 mb-2">{deal.description}</p>
                       <div className="text-sm text-white/60">
-                        <p>사용: {deal.current_claims} / {deal.max_claims}</p>
+                        <p>받은 수: {deal.current_claims} / {deal.max_claims}</p>
+                        <p>사용 완료: {deal.redeemed_count || 0}/{deal.current_claims}</p>
                         <p>만료: {formatDate(deal.expires_at)}</p>
                         <p>생성: {formatDate(deal.created_at)}</p>
                       </div>
@@ -913,7 +915,8 @@ export default function MerchantDashboard() {
                       </h3>
                       <p className="text-white/80 mb-2">{deal.description}</p>
                       <div className="text-sm text-white/60">
-                        <p>사용: {deal.current_claims} / {deal.max_claims}</p>
+                        <p>받은 수: {deal.current_claims} / {deal.max_claims}</p>
+                        <p>사용 완료: {deal.redeemed_count || 0}/{deal.current_claims}</p>
                         <p>취소: {formatDate(deal.expires_at)}</p>
                         <p>생성: {formatDate(deal.created_at)}</p>
                       </div>
@@ -979,7 +982,8 @@ export default function MerchantDashboard() {
                         </h3>
                         <p className="text-white/80 mb-2">{deal.description}</p>
                         <div className="text-sm text-white/60">
-                          <p>사용: {deal.current_claims} / {deal.max_claims}</p>
+                          <p>받은 수: {deal.current_claims} / {deal.max_claims}</p>
+                          <p>사용 완료: {deal.redeemed_count || 0}/{deal.current_claims}</p>
                           <p>만료: {formatDate(deal.expires_at)}</p>
                           <p>생성: {formatDate(deal.created_at)}</p>
                         </div>
