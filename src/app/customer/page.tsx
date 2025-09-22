@@ -165,10 +165,10 @@ function CustomerPageContent() {
               body: JSON.stringify({
                 deviceId: deviceId,
                 subscription: {
-                  endpoint: 'FCM',
+                  endpoint: `https://fcm.googleapis.com/fcm/send/${fcmToken}`,
                   keys: {
                     auth: fcmToken,
-                    p256dh: 'FCM'
+                    p256dh: 'unused-for-fcm'
                   }
                 }
               }),
